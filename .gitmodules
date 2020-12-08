@@ -1,0 +1,4 @@
+[submodule "vnd/cobble"]
+	path = vnd/cobble
+	url = git@github.com:cbiffle/cobble-build.git
+	branch = v2
