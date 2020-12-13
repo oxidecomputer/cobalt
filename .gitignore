@@ -1,0 +1,3 @@
+# Cobble/Python ignores
+/build
+__pycache__
