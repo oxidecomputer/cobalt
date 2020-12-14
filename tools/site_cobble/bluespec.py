@@ -17,6 +17,7 @@ BSC_FLAGS = cobble.env.appending_string_seq_key('bsc_flags')
 BSC_BDIR = cobble.env.overrideable_string_key('bsc_bdir')
 BO_PATHS = cobble.env.frozenset_key('bluespec_object_paths')
 VERILOG_FLAGS = cobble.env.appending_string_seq_key('bluespec_verilog_flags')
+SIM_FLAGS = cobble.env.appending_string_seq_key('bluespec_sim_flags')
 
 # Bluespec searches directories rather than taking lists of objects. If a
 # source file is moved from one target to another, for example, you can wind up
@@ -34,7 +35,7 @@ BLUESCAN_MAP = cobble.env.frozenset_key('bluescan_map',
         readout = lambda s: ' '.join(s))
 
 # Cobble looks for this declaration to register keys:
-KEYS = frozenset([BSC, BSC_FLAGS, BSC_BDIR, BO_PATHS, VERILOG_FLAGS, BLUESCAN,
+KEYS = frozenset([BSC, BSC_FLAGS, BSC_BDIR, BO_PATHS, VERILOG_FLAGS, SIM_FLAGS, BLUESCAN,
     BLUESCAN_OBJ, BLUESCAN_MAP, SOURCE_HACK])
 
 # Construct some frozen sets for environment subsetting.
@@ -43,6 +44,7 @@ KEYS = frozenset([BSC, BSC_FLAGS, BSC_BDIR, BO_PATHS, VERILOG_FLAGS, BLUESCAN,
 _compile_keys = frozenset(['__order_only__', '__implicit__', BSC.name,
     BSC_FLAGS.name, BO_PATHS.name])
 _verilog_keys = _compile_keys | frozenset([VERILOG_FLAGS.name])
+_sim_keys = _compile_keys | frozenset([SIM_FLAGS.name])
 
 _bluescan_keys = frozenset([BLUESCAN.name, BLUESCAN_MAP.name])
 
@@ -243,14 +245,104 @@ def bluespec_verilog(package, name, *,
         local = local,
     )
 
+@target_def
+def bluespec_simulation(package, name, *,
+        env,
+        top,
+        module,
+        deps = [],
+        local: Delta = {},
+        extra: Delta = {}):
+    def mkusing(ctx):
+        # Generate object file products for the top module.
+        objects, dyndeps, _, _ = _compile_objects(package, [top], ctx)
+
+        top_object = objects[0]
+        top_dyndep = dyndeps[0]
+
+        object_dir = os.path.dirname(top_object.outputs[0])
+        object_out = module + '.ba'
+        object_path = os.path.join(object_dir, object_out)
+
+        unique_bo_paths = sorted(ctx.env[BO_PATHS.name])
+
+        object_env = ctx.env.subset_require(_sim_keys).derive({
+            SIM_FLAGS.name: [
+                '-bdir', object_dir,
+                '-p +:' + ':'.join(unique_bo_paths),
+                '-g', module,
+            ]
+        })
+
+        object = cobble.target.Product(
+            env = object_env,
+            inputs = ctx.rewrite_sources([top]),
+            outputs = top_object.outputs + (object_path,),
+            dyndep = top_dyndep.outputs[0],
+            order_only = top_dyndep.outputs,
+            rule = 'generate_bluesim_object',
+        )
+
+        # Derive a new environment for the Bluesim binary output path.
+        binary_env = ctx.env.subset_require(_sim_keys).derive({
+            SIM_FLAGS.name: [
+                '-e', module,
+            ],
+        })
+
+        binary_stamp = cobble.target.Product(
+            env = ctx.env.subset([]),
+            outputs = [package.outpath(binary_env, '.force-dir-creation')],
+            rule = 'bluespec_directory_creation_hack',
+        )
+
+        # Add simdir to environment.
+        binary_dir = package.outpath(binary_env)
+        binary_path = package.outpath(binary_env, name)
+        binary_env = binary_env.derive({
+            SIM_FLAGS.name: [
+                '-simdir', binary_dir,
+            ],
+        })
+
+        binary = cobble.target.Product(
+            env = binary_env,
+            inputs = [object_path],
+            outputs = [binary_path],
+            rule = 'link_bluesim_binary',
+            implicit = object.outputs,
+            order_only = binary_stamp.outputs,
+            symlink_as = package.linkpath(name),
+        )
+        binary.expose(path = binary_path, name = name)
+
+        return (local, [top_dyndep, object, binary, binary_stamp])
+
+    return cobble.target.Target(
+        package = package,
+        name = name,
+        concrete = True,
+        down = lambda _up_unused: package.project.named_envs[env].derive(extra),
+        using_and_products = mkusing,
+        deps = deps,
+    )
+
 ninja_rules = {
     'compile_bluespec_obj': {
         'command': '$bsc $bsc_flags -bdir $bsc_bdir $in',
         'description': 'BS $in',
     },
     'generate_bluespec_verilog': {
-        'command': '$bsc -verilog $bluespec_verilog_flags $bsc_flags $in',
+        'command': '$bsc $bsc_flags -verilog $bluespec_verilog_flags $in',
         'description': 'VERILOG $in',
+    },
+    'generate_bluesim_object': {
+        'command': '$bsc $bsc_flags -sim $bluespec_sim_flags $in',
+        'description': 'BLUESIM $in',
+    },
+    'link_bluesim_binary': {
+        'command': '$bsc $bsc_flags -sim $bluespec_sim_flags -o $out $in',
+        'description': 'LINK BLUESIM $out',
     },
     'bluespec_dep_scan': {
         'command': '$bluescan --ninja $out --object $bluescan_obj --source $in $bluescan_map',
