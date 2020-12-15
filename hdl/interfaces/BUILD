@@ -20,7 +20,13 @@ bluespec_simulation('uart_serdes_test',
     top = 'UART.bsv',
     module = 'mkSerDesTest',
     deps = [
-        '//hdl:BitSampling',
-        '//hdl:Strobe',
-        '//hdl:TestUtils',
+        ':UART',
+    ])
+
+bluespec_simulation('uart_serializer_test',
+    env = 'default',
+    top = 'UART.bsv',
+    module = 'mkSerializerTest',
+    deps = [
+        ':UART',
     ])

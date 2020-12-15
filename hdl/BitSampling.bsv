@@ -76,9 +76,9 @@ module mkAsyncBitSampler
     (* fire_when_enabled *)
     rule do_detect_edge;
         // Take a slice of the bit samples and match against the edge pattern. For a bit_period of 4
-        // samples and a positive polarity edge pattern, this effectively looks like matching
-        // comparing 'b?110. For a bit period of 8 samples and negative polarity the comparison
-        // would be against 'b???00001.
+        // samples and a positive polarity edge pattern, this effectively looks like comparing
+        // against 'b?110. For a bit period of 8 samples and negative polarity the comparison would
+        // be against 'b???00001.
         Bit#(edge_pattern_sz) sample_slice = samples[valueof(half_bit_period):0];
 
         if (detect_edge(sample_slice, polarity)) begin

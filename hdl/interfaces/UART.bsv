@@ -110,6 +110,27 @@ module mkSerializer (Serializer);
 
 endmodule : mkSerializer
 
+module mkSerializerTest (Empty);
+    Serializer ser <- mkSerializer();
+
+    mkAutoFSM(seq
+        assert_get(ser.out, 1, "expected idle bit");
+        assert_get(ser.out, 1, "expected idle bit");
+        action
+            ser.in.put('h7f);
+            assert_get(ser.out, 1, "expected idle bit");
+        endaction
+        assert_get(ser.out, 0, "expected start bit");
+        repeat(7) assert_get(ser.out, 1, "expected high bit");
+        assert_get(ser.out, 0, "expected low msb");
+        assert_get(ser.out, 1, "expected stop bit");
+        assert_get(ser.out, 1, "expected idle bit");
+        $finish;
+    endseq);
+
+    mkTestTimeout(15);
+endmodule
+
 module mkDeserializer (Deserializer);
     Reg#(State) state <- mkRegA(Idle);
 
