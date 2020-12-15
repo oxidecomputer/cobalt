@@ -4,11 +4,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-
+import re
 import os.path
-from cobble.plugin import *
-import cobble.env
 from itertools import chain
+
+import cobble.env
+from cobble.plugin import *
 
 
 # Define our Bluespec-specific environment keys and their behavior.
@@ -17,7 +18,7 @@ BSC_FLAGS = cobble.env.appending_string_seq_key('bsc_flags')
 BSC_BDIR = cobble.env.overrideable_string_key('bsc_bdir')
 BO_PATHS = cobble.env.frozenset_key('bluespec_object_paths')
 VERILOG_FLAGS = cobble.env.appending_string_seq_key('bluespec_verilog_flags')
-SIM_FLAGS = cobble.env.appending_string_seq_key('bluespec_sim_flags')
+TOP_MODULE = cobble.env.overrideable_string_key('bluespec_top_module')
 
 # Bluespec searches directories rather than taking lists of objects. If a
 # source file is moved from one target to another, for example, you can wind up
@@ -35,8 +36,8 @@ BLUESCAN_MAP = cobble.env.frozenset_key('bluescan_map',
         readout = lambda s: ' '.join(s))
 
 # Cobble looks for this declaration to register keys:
-KEYS = frozenset([BSC, BSC_FLAGS, BSC_BDIR, BO_PATHS, VERILOG_FLAGS, SIM_FLAGS, BLUESCAN,
-    BLUESCAN_OBJ, BLUESCAN_MAP, SOURCE_HACK])
+KEYS = frozenset([BSC, BSC_FLAGS, BSC_BDIR, BO_PATHS, VERILOG_FLAGS, TOP_MODULE,
+    BLUESCAN, BLUESCAN_OBJ, BLUESCAN_MAP, SOURCE_HACK])
 
 # Construct some frozen sets for environment subsetting.
 # Note: we include __implicit__ in the compile environment because compilation
@@ -44,7 +45,6 @@ KEYS = frozenset([BSC, BSC_FLAGS, BSC_BDIR, BO_PATHS, VERILOG_FLAGS, SIM_FLAGS, 
 _compile_keys = frozenset(['__order_only__', '__implicit__', BSC.name,
     BSC_FLAGS.name, BO_PATHS.name])
 _verilog_keys = _compile_keys | frozenset([VERILOG_FLAGS.name])
-_sim_keys = _compile_keys | frozenset([SIM_FLAGS.name])
 
 _bluescan_keys = frozenset([BLUESCAN.name, BLUESCAN_MAP.name])
 
@@ -254,53 +254,128 @@ def bluespec_simulation(package, name, *,
         local: Delta = {},
         extra: Delta = {}):
     def mkusing(ctx):
-        # Generate object file products for the top module.
-        objects, dyndeps, _, _ = _compile_objects(package, [top], ctx)
+        # This target is.. hum.. not as cleas as we'd like in order to accomodate BSC and how it
+        # expects its input. The explanation is as follows:
+        #
+        # Generating a Bluesim simulation artifact is done in three steps. First, the BSC takes a
+        # Bluespec package file and a module name in that package, compile the package into an
+        # object (named <package>.bo) and then from that package object (and implicitly picked up
+        # dependencies) generate a module object (named <module>.ba).
+        #
+        # The second step takes this module object and module name and generates an equivalent model
+        # in C++ (named <model>{.h,.cxx} and model_<model>{.h,.cxx}).
+        #
+        # In the third step, BSC takes the generated C++ and any additional externally compiled
+        # binary objects (if required) and compiles this into a shared object. Finally it generates
+        # an executable shell script which ultimately loads this shared object into the Bluesim
+        # framework and executes the simulation.
+        #
+        # This sounds fine for single package targets, but things get more complicated when
+        # considering dependencies. These dependencies are compiled into collections of .bo files
+        # with their respective .dyndep files and injected into the BSC compilation process by
+        # including the directories containing these objects into a path variable. For any
+        # simulation targets with dependencies this means that for the provided top level package an
+        # object already exists in the dependency set.
+        #
+        # The challenges are as follows:
+        #
+        # - The generation of <package>.bo and <module>.ba happen in a (for the build system) single
+        #   observable step, to the same output directory (controlled through the -bdir flag)
+        # - If <package>.bo already exists in the output directory BSC will quietly overwrite it
+        # - We would prefer not to overwrite the .bo in the dependency tree as we can not guarantee
+        #   it won't subtly differ from the more generic copy
+        # - We also would like to keep the .ba file from ending up in the same output directories as
+        #   the dependency .bo files.
+        #
+        # This target definition therefor assumes and does the following:
+        #
+        # - The given top package file is assumed to be a byproduct and any Bluespec packages are to
+        #   be provided as dependencies.
+        # - A dyndep is generated for the .ba file to appropriately track changes in dependencies
+        # - The package .bo and module .ba files are written to a seperate directory which
+        #   implicitly becomes part of the BSC object path. This means that depending on the
+        #   directory name, either the freshly generated package .bo or the as part of the
+        #   dependency tree is used by the compiler. This behavior is really not desirable, but
+        #   since both versions are built using the same BSC flags they should be the same/match the
+        #   expectations of the compiler. This assumptions seems to hold up for now.
+        #
+        # With that out of the way, lets get building.
 
-        top_object = objects[0]
-        top_dyndep = dyndeps[0]
+        # Resolve the top package file to a file.
+        top_path = ctx.rewrite_sources([top])[0]
 
-        object_dir = os.path.dirname(top_object.outputs[0])
-        object_out = module + '.ba'
-        object_path = os.path.join(object_dir, object_out)
+        # Make sure top looks like a Bluespec package file.
+        ext_re = re.compile(r'.bsv?$')
+        assert ext_re.search(top_path), '%s does not appear to be a Bluespec package' % top_path
 
+        # Extract the top package name and make sure it's found in the the dependency map.
+        top_package = ext_re.split(os.path.basename(top_path))[0]
+        deps_map = dict(tuple(dd.split('=')) for dd in ctx.env[BLUESCAN_MAP.name].split())
+        assert top_package in deps_map, \
+            'Bluespec package %s not found as part of target dependencies' % top_package
+
+        # Set up the env for the package .bo, module .ba and dyndep files.
         unique_bo_paths = sorted(ctx.env[BO_PATHS.name])
 
-        object_env = ctx.env.subset_require(_sim_keys).derive({
-            SIM_FLAGS.name: [
-                '-bdir', object_dir,
-                '-p +:' + ':'.join(unique_bo_paths),
-                '-g', module,
-            ]
+        object_env = ctx.env.subset_require(_compile_keys).derive({
+            SOURCE_HACK.name: [top_path], # Make the output a bit more unique. See above.
+            TOP_MODULE.name: module,
+            BSC_FLAGS.name: ['-p +:' + ':'.join(unique_bo_paths)],
+        })
+
+        object_out = module + '.ba'
+        object_dir = package.outpath(object_env)
+        object_path = package.outpath(object_env, object_out)
+
+        top_object_path = package.outpath(object_env, top_package + '.bo')
+        dyndep_path = object_path + '.dyndep'
+
+        object_env = object_env.derive({
+            BSC_BDIR.name: object_dir,
         })
 
         object = cobble.target.Product(
             env = object_env,
-            inputs = ctx.rewrite_sources([top]),
-            outputs = top_object.outputs + (object_path,),
-            dyndep = top_dyndep.outputs[0],
-            order_only = top_dyndep.outputs,
+            inputs = [top_path],
+            outputs = [object_path, top_object_path],
+            dyndep = dyndep_path,
+            order_only = [dyndep_path],
             rule = 'generate_bluesim_object',
         )
 
-        # Derive a new environment for the Bluesim binary output path.
-        binary_env = ctx.env.subset_require(_sim_keys).derive({
-            SIM_FLAGS.name: [
-                '-e', module,
-            ],
+        # Set the module .ba path as the object for Bluescan to use in the dyndep file. This seems
+        # to work.
+        dyndep_env = ctx.env.subset_require(_bluescan_keys).derive({
+            BLUESCAN_OBJ.name: object_path,
         })
 
-        binary_stamp = cobble.target.Product(
+        dyndep = cobble.target.Product(
+            env = dyndep_env,
+            inputs = [top_path],
+            outputs = [dyndep_path],
+            rule = 'bluespec_dep_scan',
+        )
+
+        # Derive a new environment for the Bluesim binary output path. Note: this environment
+        # could/should probably be refined.
+        binary_env = ctx.env.subset_require(_compile_keys).derive({
+            # Make the output a bit more unique. See above.
+            SOURCE_HACK.name: [top_path] + unique_bo_paths,
+            TOP_MODULE.name: module,
+        })
+
+        # Force the creation of the output dir so as to keep BSC from yelling.
+        stamp = cobble.target.Product(
             env = ctx.env.subset([]),
             outputs = [package.outpath(binary_env, '.force-dir-creation')],
             rule = 'bluespec_directory_creation_hack',
         )
 
-        # Add simdir to environment.
+        # Set up the env for the Bluesim output.
         binary_dir = package.outpath(binary_env)
         binary_path = package.outpath(binary_env, name)
         binary_env = binary_env.derive({
-            SIM_FLAGS.name: [
+            BSC_FLAGS.name: [
                 '-simdir', binary_dir,
             ],
         })
@@ -311,12 +386,12 @@ def bluespec_simulation(package, name, *,
             outputs = [binary_path],
             rule = 'link_bluesim_binary',
             implicit = object.outputs,
-            order_only = binary_stamp.outputs,
+            order_only = stamp.outputs,
             symlink_as = package.linkpath(name),
         )
         binary.expose(path = binary_path, name = name)
 
-        return (local, [top_dyndep, object, binary, binary_stamp])
+        return (local, [dyndep, object, binary, stamp])
 
     return cobble.target.Target(
         package = package,
@@ -337,12 +412,12 @@ ninja_rules = {
         'description': 'VERILOG $in',
     },
     'generate_bluesim_object': {
-        'command': '$bsc $bsc_flags -sim $bluespec_sim_flags $in',
-        'description': 'BLUESIM $in',
+        'command': '$bsc $bsc_flags -bdir $bsc_bdir -sim -g $bluespec_top_module $in',
+        'description': 'BLUESIM $in:$bluespec_top_module',
     },
     'link_bluesim_binary': {
-        'command': '$bsc $bsc_flags -sim $bluespec_sim_flags -o $out $in',
-        'description': 'LINK BLUESIM $out',
+        'command': '$bsc $bsc_flags -sim -e $bluespec_top_module -o $out $in',
+        'description': 'BLUESIM $out',
     },
     'bluespec_dep_scan': {
         'command': '$bluescan --ninja $out --object $bluescan_obj --source $in $bluescan_map',
