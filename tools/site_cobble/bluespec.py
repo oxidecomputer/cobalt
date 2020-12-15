@@ -289,8 +289,8 @@ def bluespec_simulation(package, name, *,
         #
         # This target definition therefor assumes and does the following:
         #
-        # - The given top package file is not intended to be a standalone source file and is required
-        #   to be present in the dependencies of the target.
+        # - The given top package file is not intended to be a standalone source file and is
+        #   required to be present in the dependencies of the target.
         # - The resulting top package .bo is only considered in building the .ba file and otherwise
         #   not uses as a library dependency for other targets
         # - A dyndep is generated for the .ba file to appropriately track changes in dependencies
