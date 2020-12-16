@@ -1,5 +1,10 @@
 # -*- python -*- vim:syntax=python:
 
+bluespec_library('Blinky',
+    sources = [
+        'Blinky.bsv',
+    ])
+
 bluespec_library('UARTLoopback',
     sources = [
         'UARTLoopback.bsv',
@@ -8,10 +13,18 @@ bluespec_library('UARTLoopback',
         '//hdl/interfaces:UART',
     ])
 
-bluespec_simulation('uart_loopback_test',
-    env = 'default',
+bluespec_sim('loopback_tests',
     top = 'UARTLoopback.bsv',
-    module = 'mkUARTLoopbackTest',
+    modules = [
+        'mkUARTLoopbackTest'
+    ],
     deps = [
         ':UARTLoopback',
+    ])
+
+bluesim_binary('uart_loopback_test',
+    env = 'bluesim_default',
+    top = ':loopback_tests#mkUARTLoopbackTest',
+    deps = [
+        ':loopback_tests',
     ])

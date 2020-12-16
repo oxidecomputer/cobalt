@@ -17,8 +17,6 @@ BSC = cobble.env.overrideable_string_key('bsc')
 BSC_FLAGS = cobble.env.appending_string_seq_key('bsc_flags')
 BSC_BDIR = cobble.env.overrideable_string_key('bsc_bdir')
 BO_PATHS = cobble.env.frozenset_key('bluespec_object_paths')
-VERILOG_FLAGS = cobble.env.appending_string_seq_key('bluespec_verilog_flags')
-TOP_MODULE = cobble.env.overrideable_string_key('bluespec_top_module')
 
 # Bluespec searches directories rather than taking lists of objects. If a
 # source file is moved from one target to another, for example, you can wind up
@@ -36,7 +34,7 @@ BLUESCAN_MAP = cobble.env.frozenset_key('bluescan_map',
         readout = lambda s: ' '.join(s))
 
 # Cobble looks for this declaration to register keys:
-KEYS = frozenset([BSC, BSC_FLAGS, BSC_BDIR, BO_PATHS, VERILOG_FLAGS, TOP_MODULE,
+KEYS = frozenset([BSC, BSC_FLAGS, BSC_BDIR, BO_PATHS,
     BLUESCAN, BLUESCAN_OBJ, BLUESCAN_MAP, SOURCE_HACK])
 
 # Construct some frozen sets for environment subsetting.
@@ -44,8 +42,6 @@ KEYS = frozenset([BSC, BSC_FLAGS, BSC_BDIR, BO_PATHS, VERILOG_FLAGS, TOP_MODULE,
 # references .bo files.
 _compile_keys = frozenset(['__order_only__', '__implicit__', BSC.name,
     BSC_FLAGS.name, BO_PATHS.name])
-_verilog_keys = _compile_keys | frozenset([VERILOG_FLAGS.name])
-
 _bluescan_keys = frozenset([BLUESCAN.name, BLUESCAN_MAP.name])
 
 def _mapping(path):
@@ -89,7 +85,6 @@ def bluespec_library(package, name, *,
         deps = deps,
         local = local,
     )
-
 
 def _compile_objects(package, sources, ctx):
     """Implementation factor for targets that compile .bs/.bsv to .bo.
@@ -177,176 +172,73 @@ def _compile_objects(package, sources, ctx):
 
     return (bos, dyndeps, local_map, stamp)
 
-@target_def
-def bluespec_verilog(package, name, *,
+def _bluespec_modules(package, name, mod_type, *,
         top,
-        output,
+        modules,
         deps = [],
         using: Delta = {},
         local: Delta = {}):
-
     def mkusing(ctx):
-        # Generate object file products.
-        objects, dyndeps, dd_map_unused, stamp_unused = _compile_objects(package, [top], ctx)
-        obj = objects[0]
-        dyndep = dyndeps[0]
-
-        # Extract just the paths.
-        obj_files = obj.outputs
-
-        # Rewrite the Verilog output in the full environment.
-        # Note: not using rewrite_sources because target references aren't
-        # legal here.
-        out = ctx.env.rewrite(output)
-
-        # Now, subset the environment to the keys that actually affect Verilog
-        # generation.
-        v_env = ctx.env.subset_require(_verilog_keys)
-        output_path = package.outpath(v_env, out)
-
-        # Build flags for bsc
-        unique_bo_paths = sorted(ctx.env[BO_PATHS.name])
-        flags = [
-            '-vdir', package.outpath(v_env),
-            '-p +:' + ':'.join(unique_bo_paths),
-            '-bdir', os.path.dirname(obj_files[0]),
-        ]
-
-        # Further subset bsc's environment for the verilog outputs, to control
-        # what variables are passed to Ninja.
-        p_env = v_env.derive({
-            VERILOG_FLAGS.name: flags,
-        })
-
-        verilog = cobble.target.Product(
-            env = p_env,
-            outputs = obj_files + (output_path,),
-            rule = 'generate_bluespec_verilog',
-            inputs = ctx.rewrite_sources([top]),
-            dyndep = dyndep.outputs[0],
-            order_only = dyndep.outputs,
-        )
-        verilog.expose(path = output_path, name = output)
-
-        our_using = (
-            using,
-            cobble.env.prepare_delta({
-                '__implicit__': [output_path],
-            }),
-        )
-
-        return (our_using, [dyndep, verilog])
-
-    return cobble.target.Target(
-        package = package,
-        name = name,
-        using_and_products = mkusing,
-        deps = deps,
-        local = local,
-    )
-
-@target_def
-def bluespec_simulation(package, name, *,
-        env,
-        top,
-        module,
-        deps = [],
-        local: Delta = {},
-        extra: Delta = {}):
-    def mkusing(ctx):
-        # This target is.. hum.. not as cleas as we'd like in order to accomodate BSC and how it
-        # expects its input. The explanation is as follows:
-        #
-        # Generating a Bluesim simulation artifact is done in three steps. First, the BSC takes a
-        # Bluespec package file and a module name in that package, compile the package into an
-        # object (named <package>.bo) and then from that package object (and implicitly picked up
-        # dependencies) generate a module object (named <module>.ba).
-        #
-        # The second step takes this module object and module name and generates an equivalent model
-        # in C++ (named <model>{.h,.cxx} and model_<model>{.h,.cxx}).
-        #
-        # In the third step, BSC takes the generated C++ and any additional externally compiled
-        # binary objects (if required) and compiles this into a shared object. Finally it generates
-        # an executable shell script which ultimately loads this shared object into the Bluesim
-        # framework and executes the simulation.
-        #
-        # This sounds fine for single package targets, but things get more complicated when
-        # considering dependencies. These dependencies are compiled into collections of .bo files
-        # with their respective .dyndep files and injected into the BSC compilation process by
-        # including the directories containing these objects into a path variable. For any
-        # simulation targets with dependencies this means that for the provided top level package an
-        # object already exists in the dependency set.
-        #
-        # The challenges are as follows:
-        #
-        # - The generation of <package>.bo and <module>.ba happen in a (for the build system) single
-        #   observable step, to the same output directory (controlled through the -bdir flag)
-        # - If <package>.bo already exists in the output directory BSC will quietly overwrite it
-        # - We would prefer not to overwrite the .bo in the dependency tree as we can not guarantee
-        #   it won't subtly differ from the more generic copy
-        # - We also would like to keep the .ba file from ending up in the same output directories as
-        #   the dependency .bo files.
-        #
-        # This target definition therefor assumes and does the following:
-        #
-        # - The given top package file is not intended to be a standalone source file and is
-        #   required to be present in the dependencies of the target.
-        # - The resulting top package .bo is only considered in building the .ba file and otherwise
-        #   not uses as a library dependency for other targets
-        # - A dyndep is generated for the .ba file to appropriately track changes in dependencies
-        # - The package .bo and module .ba files are written to a seperate directory which
-        #   implicitly becomes part of the BSC object path. This means that depending on the
-        #   directory name, either the freshly generated package .bo or the as part of the
-        #   dependency tree is used by the compiler. This behavior is really not desirable, but
-        #   since both versions are built using the same BSC flags they should be the same/match the
-        #   expectations of the compiler. This assumptions seems to hold up for now.
-        #
-        # With that out of the way, lets get building.
-
-        # Resolve the top package file to a file.
+        # Resolve the top package or object to a file.
         top_path = ctx.rewrite_sources([top])[0]
 
-        # Make sure top looks like a Bluespec package file.
+        # Make sure top looks like a reasonable input file.
         ext_re = re.compile(r'.bsv?$')
-        assert ext_re.search(top_path), '%s does not appear to be a Bluespec package' % top_path
+        assert ext_re.search(top_path), '%s does not appear to be a .bs or .bsv file' % top_path
 
-        # Extract the top package name and make sure it's found in the the dependency map.
         top_package = ext_re.split(os.path.basename(top_path))[0]
-        deps_map = dict(tuple(dd.split('=')) for dd in ctx.env[BLUESCAN_MAP.name].split())
-        assert top_package in deps_map, \
-            'Bluespec package %s not found as part of target dependencies' % top_package
 
-        # Set up the env for the package .bo, module .ba and dyndep files.
-        unique_bo_paths = sorted(ctx.env[BO_PATHS.name])
+        # Make sure arguments make sense and we do not generate garbage.
+        assert len(modules) != 0, 'No modules provided, output will be empty'
+        assert mod_type == 'verilog' or mod_type == 'sim', 'Invalid module type %s' % mod_type
 
-        object_env = ctx.env.subset_require(_compile_keys).derive({
-            SOURCE_HACK.name: [top_path], # Make the output a bit more unique. See above.
-            TOP_MODULE.name: module,
-            BSC_FLAGS.name: ['-p +:' + ':'.join(unique_bo_paths)],
+        # When generating Verilog output, BSC expects a package file as input. It will compile this
+        # package into an object, whether or not it may already be able to find an object for this
+        # package. The package file may or may not already be part of the dependency tree and if it
+        # is we do not want to overwrite it since that may trigger re-compilation of other targets.
+        #
+        # To work around this, derive an environment which is sufficiently different and have BSC
+        # write out the object on the side, using it only for this target.
+        #
+        # Note that if the package is already present in the dependency tree, BSC will be able to
+        # use either since we can't remove the .bo path for the other object (as there may be other
+        # objects on that path). This is not ideal, but since both objects are built using the same
+        # flags they should be identical for the purposes of generating the desired Verilog output.
+
+        # Rewrite outputs into the environment.
+        object_out = ctx.env.rewrite(top_package + '.bo')
+        module_outs = [ctx.env.rewrite(m) for m in modules]
+
+        env = ctx.env.subset_require(_compile_keys).derive({
+            # Insert the list of output modules to make package output dirs more unique. This allows
+            # for generating Verilog modules from the same package in two different rules if this is
+            # desired for some reason.
+            #
+            # Note that any (* synthesize *) directives in the package will still cause other
+            # modules to be generated and written to disk, but they will not be exposed in the build
+            # graph unless includes in the modules argument.
+            SOURCE_HACK.name: [top_path] + module_outs,
+            BSC_FLAGS.name: [
+                '-p +:' + ':'.join(sorted(ctx.env[BO_PATHS.name])),
+                '-%s' % mod_type,
+            ],
         })
 
-        object_out = module + '.ba'
-        object_dir = package.outpath(object_env)
-        object_path = package.outpath(object_env, object_out)
+        # Derive the output path and the subsequent product env using this output path for both the
+        # package object and Verilog modules.
+        out_dir = package.outpath(env)
+        object_path = os.path.join(out_dir, object_out)
+        module_ext = '.v' if mod_type == 'verilog' else '.ba'
+        module_paths = [os.path.join(out_dir, out + module_ext) for out in module_outs]
 
-        top_object_path = package.outpath(object_env, top_package + '.bo')
-        dyndep_path = object_path + '.dyndep'
-
-        object_env = object_env.derive({
-            BSC_BDIR.name: object_dir,
+        p_env = env.derive({
+            BSC_FLAGS.name: ['-vdir', out_dir] if mod_type == 'verilog' else [],
+            BSC_BDIR.name: out_dir,
         })
 
-        object = cobble.target.Product(
-            env = object_env,
-            inputs = [top_path],
-            outputs = [object_path, top_object_path],
-            dyndep = dyndep_path,
-            order_only = [dyndep_path],
-            rule = 'generate_bluesim_object',
-        )
-
-        # Set the module .ba path as the object for Bluescan to use in the dyndep file. This seems
-        # to work.
+        # Derive dyndep env and product for the dyndep file.
+        dyndep_out = object_out + '.dyndep'
+        dyndep_path = os.path.join(out_dir, dyndep_out)
         dyndep_env = ctx.env.subset_require(_bluescan_keys).derive({
             BLUESCAN_OBJ.name: object_path,
         })
@@ -358,42 +250,122 @@ def bluespec_simulation(package, name, *,
             rule = 'bluespec_dep_scan',
         )
 
+        # Make sure the vdir/bdir exists by adding a stamp.
+        vdir_stamp = cobble.target.Product(
+            env = ctx.env.subset([]),
+            outputs = [os.path.join(out_dir, '.force-dir-creation')],
+            rule = 'bluespec_directory_creation_hack',
+        )
+
+        product = cobble.target.Product(
+            env = p_env,
+            inputs = [top_path],
+            outputs = module_paths + [object_path],
+            rule = 'generate_bluespec_modules',
+            dyndep = dyndep_path,
+            order_only = vdir_stamp.outputs + dyndep.outputs,
+        )
+        for name, path in zip(module_outs, module_paths):
+            product.expose(path = path, name = name)
+
+        our_using = (
+            using,
+            cobble.env.prepare_delta({
+                '__implicit__': module_paths,
+            }),
+        )
+
+        return (our_using, [vdir_stamp, product, dyndep])
+
+    return cobble.target.Target(
+        package = package,
+        name = name,
+        using_and_products = mkusing,
+        deps = deps,
+        local = local,
+    )
+
+@target_def
+def bluespec_verilog(package, name, *,
+        top,
+        modules,
+        deps = [],
+        using: Delta = {},
+        local: Delta = {}):
+    return _bluespec_modules(package, name, 'verilog',
+        top = top,
+        modules = modules,
+        deps = deps,
+        using = using,
+        local = local)
+
+@target_def
+def bluespec_sim(package, name, *,
+        top,
+        modules,
+        deps = [],
+        using: Delta = {},
+        local: Delta = {}):
+    return _bluespec_modules(package, name, 'sim',
+        top = top,
+        modules = modules,
+        deps = deps,
+        using = using,
+        local = local)
+
+@target_def
+def bluesim_binary(package, name, *,
+        env,
+        top,
+        deps = [],
+        local: Delta = {},
+        extra: Delta = {}):
+    def mkusing(ctx):
+        # Resolve the module a Bluesim object file.
+        top_path = ctx.rewrite_sources([top])[0]
+
+        # Make sure top looks like a Bluespec package file.
+        ext_re = re.compile(r'.ba$')
+        assert ext_re.search(top_path), \
+            '%s does not appear to be a .ba object file' % top_path
+
+        top_module = ext_re.split(os.path.basename(top_path))[0]
+
         # Derive a new environment for the Bluesim binary output path. Note: this environment
         # could/should probably be refined.
-        binary_env = ctx.env.subset_require(_compile_keys).derive({
+        env = ctx.env.subset_require(_compile_keys).derive({
             # Make the output a bit more unique. See above.
-            SOURCE_HACK.name: [top_path] + unique_bo_paths,
-            TOP_MODULE.name: module,
+            SOURCE_HACK.name: [top_path],
+            BSC_FLAGS.name: ['-sim', '-e', top_module],
         })
 
         # Force the creation of the output dir so as to keep BSC from yelling.
         stamp = cobble.target.Product(
             env = ctx.env.subset([]),
-            outputs = [package.outpath(binary_env, '.force-dir-creation')],
+            outputs = [package.outpath(env, '.force-dir-creation')],
             rule = 'bluespec_directory_creation_hack',
         )
 
         # Set up the env for the Bluesim output.
-        binary_dir = package.outpath(binary_env)
-        binary_path = package.outpath(binary_env, name)
-        binary_env = binary_env.derive({
+        out_dir = package.outpath(env)
+        out_path = package.outpath(env, name)
+        p_env = env.derive({
             BSC_FLAGS.name: [
-                '-simdir', binary_dir,
+                '-simdir', out_dir,
             ],
         })
 
         binary = cobble.target.Product(
-            env = binary_env,
-            inputs = [object_path],
-            outputs = [binary_path],
+            env = p_env,
+            inputs = [top_path],
+            outputs = [out_path],
             rule = 'link_bluesim_binary',
-            implicit = object.outputs,
             order_only = stamp.outputs,
             symlink_as = package.linkpath(name),
         )
-        binary.expose(path = binary_path, name = name)
+        binary.expose(path = out_path, name = name)
 
-        return (local, [dyndep, object, binary, stamp])
+        return (local, [binary, stamp])
 
     return cobble.target.Target(
         package = package,
@@ -407,19 +379,15 @@ def bluespec_simulation(package, name, *,
 ninja_rules = {
     'compile_bluespec_obj': {
         'command': '$bsc $bsc_flags -bdir $bsc_bdir $in',
-        'description': 'BS $in',
+        'description': 'BS OBJECT $in',
     },
-    'generate_bluespec_verilog': {
-        'command': '$bsc $bsc_flags -verilog $bluespec_verilog_flags $in',
-        'description': 'VERILOG $in',
-    },
-    'generate_bluesim_object': {
-        'command': '$bsc $bsc_flags -bdir $bsc_bdir -sim -g $bluespec_top_module $in',
-        'description': 'BLUESIM $in:$bluespec_top_module',
+    'generate_bluespec_modules': {
+        'command': '$bsc $bsc_flags -bdir $bsc_bdir $in',
+        'description': 'BS MODULES $in',
     },
     'link_bluesim_binary': {
-        'command': '$bsc $bsc_flags -sim -e $bluespec_top_module -o $out $in',
-        'description': 'BLUESIM $out',
+        'command': '$bsc $bsc_flags -o $out $in',
+        'description': 'BLUESIM $in',
     },
     'bluespec_dep_scan': {
         'command': '$bluescan --ninja $out --object $bluescan_obj --source $in $bluescan_map',

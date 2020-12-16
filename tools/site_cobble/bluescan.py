@@ -29,10 +29,7 @@ def main(args):
 
     args = parser.parse_args(args[1:])
 
-    prelude_modules = set([
-        # HACK HACK this is every ifdef'd out module
-        'DM_CPU_Req_Rsp', 'FPR_RegFile', 'Near_Mem_TCM', 'Debug_Module', 'CSR_RegFile_Min', 'TV_Taps', 'DM_Common', 'TV_Encode', 'FBox_Top', 'FBox_Core', 'Shifter_Box', 'TLB', 'Cache_Decls_RV64', 'AXI4_Accel_IFC', 'AXI4_Accel', 'External_Control', 'Camera_Model',
-    ])
+    prelude_modules = set([])
 
     for entry in os.scandir(args.bs_prefix + '/lib/Libraries'):
         if entry.is_file() and entry.name.endswith('.bo'):

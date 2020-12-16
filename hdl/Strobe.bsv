@@ -68,6 +68,7 @@ instance Connectable#(Strobe#(a), Strobe#(b));
     endmodule
 endinstance
 
+(* synthesize *)
 module mkFractionalStrobeTest (Empty);
     Strobe#(16) s <- mkFractionalStrobe(100_000 / 9600, 0);
 

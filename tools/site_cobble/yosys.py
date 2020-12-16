@@ -108,9 +108,9 @@ def _read_sources(sources):
 
 ninja_rules = {
     'yosys_script': {
-        'command': '$yosys_awk \'$$1=$$1\' RS=\';\' $cmds.ys > $out',
+        'command': '$yosys_awk \'$$1=$$1\' RS=\';\' $out.rsp > $out',
         'description': 'RSP $out',
-        'rspfile': '$cmds.ys',
+        'rspfile': '$out.rsp',
         'rspfile_content': '$yosys_cmds',
     },
     'yosys_design': {

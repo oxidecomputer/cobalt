@@ -35,25 +35,27 @@ def nextpnr_bitstream(package, name, *,
         extra: Delta = {}):
     def mkusing(ctx):
         # Place and route design and produce a device configuration file in text format.
-        device_config = cobble.target.Product(
-            env = ctx.env.subset_require(_pnr_keys),
+        config_env = ctx.env.subset_require(_pnr_keys)
+        config = cobble.target.Product(
+            env = config_env,
             inputs = ctx.rewrite_sources([design]),
-            outputs = [package.outpath(ctx.env, name + '.config')],
+            outputs = [package.outpath(config_env, name + '.config')],
             implicit = [ctx.env[CONSTRAINTS.name]],
             rule = 'place_and_route_ecp5_design',
         )
 
         # Pack device configuration file into a bitstream.
+        bitstream_env = ctx.env.subset_require(_pack_keys)
         bitstream_out = name + '.bit'
         bitstream = cobble.target.Product(
-            env = ctx.env.subset_require(_pack_keys),
-            inputs = device_config.outputs,
-            outputs = [package.outpath(ctx.env, bitstream_out)],
+            env = bitstream_env,
+            inputs = config.outputs,
+            outputs = [package.outpath(bitstream_env, bitstream_out)],
             symlink_as = package.linkpath(bitstream_out),
             rule = 'pack_ecp5_bitstream',
         )
 
-        return (extra, [device_config, bitstream])
+        return (extra, [config, bitstream])
 
     return cobble.target.Target(
         package = package,
@@ -67,7 +69,7 @@ def nextpnr_bitstream(package, name, *,
 
 ninja_rules = {
     'place_and_route_ecp5_design': {
-        'command': '$nextpnr $nextpnr_flags --lpf $nextpnr_constraints --json $in --textcfg $out',
+        'command': '$nextpnr $nextpnr_flags -l $out.log --lpf $nextpnr_constraints --json $in --textcfg $out',
         'description': 'PNR $in',
     },
     'pack_ecp5_bitstream': {

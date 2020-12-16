@@ -57,6 +57,7 @@ module mkUARTLoopback (UARTLoopback#(clk_freq, baud_rate, bit_period))
     method tx_strobe = transceiver.tx_strobe;
 endmodule
 
+(* synthesize *)
 module mkUARTLoopbackTest (Empty);
     UARTLoopback#(25_000_000, 115200, 8) loopback <- mkUARTLoopback();
 

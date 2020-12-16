@@ -11,9 +11,6 @@ bluespec_library('BitSampling',
 bluespec_library('Strobe',
     sources = [
         'Strobe.bsv'
-    ],
-    deps = [
-        ':TestUtils'
     ])
 
 bluespec_library('TestUtils',
@@ -21,10 +18,18 @@ bluespec_library('TestUtils',
         'TestUtils.bsv',
     ])
 
-bluespec_simulation('fractional_strobe_test',
-    env = 'default',
+bluespec_sim('strobe_tests',
     top = 'Strobe.bsv',
-    module = 'mkFractionalStrobeTest',
+    modules = [
+        'mkFractionalStrobeTest',
+    ],
     deps = [
         ':Strobe',
+    ])
+
+bluesim_binary('fractional_strobe_test',
+    env = 'bluesim_default',
+    top = ':strobe_tests#mkFractionalStrobeTest',
+    deps = [
+        ':strobe_tests',
     ])
