@@ -7,7 +7,7 @@
 package TestUtils;
 
 export mkTestTimeout;
-export assert_get;
+export assert_get, display_get_and_assert;
 
 import Assert::*;
 import GetPut::*;
@@ -31,6 +31,16 @@ function Action assert_get(Get#(t) o, t expected, String s)
         provisos (Eq#(t)) =
     action
         let actual <- o.get();
+        dynamicAssert(actual == expected, s);
+    endaction;
+
+function Action display_get_and_assert(Get#(t) o, t expected, String s)
+        provisos (
+            Eq#(t),
+            FShow#(t)) =
+    action
+        let actual <- o.get();
+        $display(fshow(actual));
         dynamicAssert(actual == expected, s);
     endaction;
 
