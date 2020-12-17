@@ -31,8 +31,8 @@ yosys_design('blinky',
         ':examples',
     ])
 
-nextpnr_bitstream('blinky_ulx3s',
-    env = 'ulx3s',
+nextpnr_bitstream('blinky_ecp5_evn',
+    env = 'ecp5_evn',
     design = ':blinky#json',
     deps = [
         ':blinky',
@@ -52,7 +52,7 @@ yosys_design('uart_loopback',
     ])
 
 nextpnr_bitstream('uart_loopback_ulx3s',
-    env = 'ulx3s',
+    env = 'ecp5_evn',
     design = ':uart_loopback#json',
     deps = [
         ':uart_loopback',

@@ -4,10 +4,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package ULX3S;
+package Board;
 
 export FTDI(..), ESP32(..);
-export ULX3STop(..);
+export Top(..);
 
 
 (* always_ready, always_enabled *)
@@ -22,7 +22,7 @@ interface ESP32;
     method Bit#(1) gpio0();
 endinterface
 
-interface ULX3STop;
+interface Top;
     interface FTDI ftdi;
     interface ESP32 wifi;
 
@@ -34,4 +34,4 @@ interface ULX3STop;
     method Action sw((* port = "sw" *) Bit#(4) val);
 endinterface
 
-endpackage : ULX3S
+endpackage : Board

@@ -6,15 +6,16 @@
 
 package Examples;
 
-import Blinky::*;
+import Board::*;
 import ECP5::*;
+
+import Blinky::*;
 import UART::*;
 import UARTLoopback::*;
-import ULX3S::*;
 
 
 (* synthesize, default_clock_osc="clk_25mhz", default_reset="btn_pwr" *)
-module mkBlinky (ULX3STop);
+module mkBlinky (Top);
     GSR gsr <- mkGSR(); // Allow btn_pwr to reset the design.
     Blinky#(25_000_000) blinky <- Blinky::mkBlinky();
 
@@ -44,9 +45,8 @@ module mkBlinky (ULX3STop);
 endmodule
 
 (* synthesize, default_clock_osc="clk_25mhz", default_reset="btn_pwr" *)
-module mkUARTLoopback (ULX3STop);
+module mkUARTLoopback (Top);
     GSR gsr <- mkGSR(); // Allow btn_pwr to reset the design.
-
     UARTLoopback#(25_000_000, 115200, 8) loopback <- UARTLoopback::mkUARTLoopback();
 
     // RX input register. Since the output of this register goes into additional FFs as part of the
