@@ -8,6 +8,16 @@ bluespec_library('BitSampling',
         ':Strobe',
     ])
 
+bluespec_library('Encoding8b10b',
+    sources = [
+        'Encoding8b10b.bsv',
+        'Encoder8b10b.bsv',
+        'Decoder8b10b.bsv',
+    ],
+    deps = [
+        ':TestUtils',
+    ])
+
 bluespec_library('Strobe',
     sources = [
         'Strobe.bsv'
@@ -18,18 +28,24 @@ bluespec_library('TestUtils',
         'TestUtils.bsv',
     ])
 
-bluespec_sim('strobe_tests',
-    top = 'Strobe.bsv',
-    modules = [
-        'mkFractionalStrobeTest',
-    ],
-    deps = [
-        ':Strobe',
-    ])
+# Tests
 
-bluesim_binary('fractional_strobe_test',
-    env = 'bluesim_default',
-    top = ':strobe_tests#mkFractionalStrobeTest',
-    deps = [
-        ':strobe_tests',
-    ])
+def test_module(name, library, top, module):
+    object_dep = name + '_object'
+    bluespec_sim(object_dep,
+        top = top,
+        modules = [
+            module,
+        ],
+        deps = [
+            ':' + library,
+        ])
+    bluesim_binary(name,
+        env = 'bluesim_default',
+        top = ':%s#%s' % (object_dep, module),
+        deps = [
+            ':' + object_dep,
+        ])
+
+test_module('fractional_strobe_test', 'Strobe', 'Strobe.bsv', 'mkFractionalStrobeTest')
+test_module('8b10b_encoder_test', 'Encoding8b10b', 'Encoder8b10b.bsv', 'mkEncoderTest')
