@@ -228,15 +228,19 @@ module mkDecoder (Decoder);
                 expected_rd_violation_if_k :
                 expected_rd_violation_if_d;
 
+            let mk_value = result.is_k ? mk_d : mk_d;
+
             if (isValid(next_rd) && !expected_rd_violation) begin
-                value_result.enq(tagged Valid ((result.is_k ? mk_d : mk_d)(x.value, y.value)));
+                value_result.enq(tagged Valid mk_value(x.value, y.value));
                 rd <= next_rd;
             end else begin
                 value_result.enq(tagged Invalid({y.value, x.value}));
                 rd <= tagged Invalid;
             end
         end else begin
-            // Either one or both of the received x and y blocks was invalid. Return an invalid result with whatever bits we can recover or zeros if the received character was total garbage.
+            // Either one or both of the received x and y blocks was invalid. Return an invalid
+            // result with whatever bits we can recover or zeros if the received character was total
+            // garbage.
             value_result.enq(Invalid({
                 fromMaybe(BlockValue{value: 0, disparity: ?}, result.y).value,
                 fromMaybe(BlockValue{value: 0, disparity: ?}, result.x).value}));
