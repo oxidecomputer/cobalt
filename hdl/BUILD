@@ -15,6 +15,7 @@ bluespec_library('Encoding8b10b',
         'Decoder8b10b.bsv',
     ],
     deps = [
+        ':BitSampling',
         ':TestUtils',
     ])
 

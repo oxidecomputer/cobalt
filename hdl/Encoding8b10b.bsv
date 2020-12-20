@@ -7,13 +7,16 @@
 package Encoding8b10b;
 
 export Value(..), value_bits, mk_d, mk_k, is_d, is_k;
-export Character, mk_c;
+export Character, mk_c, fmt_character;
 export Result(..), ValueResult(..), CharacterResult(..);
 export result_valid, value_result_bits, character_result_bits;
 export RunningDisparity(..), Encoder(..), Decoder(..);
-export fmt_character;
+export Serializer(..), Deserializer(..);
 
+import Connectable::*;
 import GetPut::*;
+
+import BitSampling::*;
 
 
 //
@@ -116,6 +119,36 @@ interface Decoder;
 endinterface
 
 //
+// Serializer interface.
+//
+interface Serializer;
+    interface Put#(Value) in;
+    interface Get#(Bit#(1)) out;
+
+    // Indication that an encoding error has occured.
+    method Bool encoding_error();
+
+    // Indication that the pipeline will stall if no Value is submitted for serialization. A source
+    // can use this to transmit an idle or no-op Value at the last cycle.
+    //
+    // Note: a serializer may generate this indicator irrespective of whether or not "in" is ready.
+    method Bool last_call();
+endinterface
+
+//
+// Deserializer interface.
+//
+interface Deserializer;
+    interface Put#(Bit#(1)) in;
+    interface Get#(ValueResult) out;
+
+    // Indicating whether or not there is any activity on the link.
+    method Bool activity_detected();
+    // Indicating whether or not the deserializer is locked to a remote encoder/serializer.
+    method Bool locked();
+endinterface
+
+//
 // Format helpers.
 //
 
@@ -161,6 +194,22 @@ instance FShow#(RunningDisparity);
             RunningNegative: $format("-");
             RunningPositive: $format("+");
         endcase;
+endinstance
+
+//
+// Connectable
+//
+
+instance Connectable#(Serializer, Deserializer);
+    module mkConnection #(Serializer ser, Deserializer des) (Empty);
+        mkConnection(ser.out, des.in);
+    endmodule
+endinstance
+
+instance Connectable#(BitSampler#(bit_period), Deserializer);
+    module mkConnection #(BitSampler#(bit_period) sampler, Deserializer des) (Empty);
+        mkConnection(sampler.out, des.in);
+    endmodule
 endinstance
 
 endpackage: Encoding8b10b

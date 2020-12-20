@@ -1,6 +1,13 @@
+// Copyright 2020 Oxide Computer Company
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 package Decoder8b10b;
 
 export mkDecoder;
+export Idle(..), mkDeserializer;
 
 import FIFO::*;
 import GetPut::*;
@@ -23,9 +30,9 @@ typedef struct {
 
 typedef struct {
     Bool is_k;
+    Maybe#(RunningDisparity) expected_rd;
     Maybe#(BlockValue#(5)) x;
     Maybe#(BlockValue#(3)) y;
-    Maybe#(RunningDisparity) expected_rd;
 } LookupResult deriving (Bits, FShow);
 
 function Maybe#(BlockValue#(5)) lookup_x(Character c) =
@@ -161,9 +168,9 @@ module mkDecoder (Decoder);
             lookup_result.enq(
                 LookupResult{
                     is_k: is_k,
+                    expected_rd: is_k ? expected_rd_if_k : expected_rd_if_d,
                     x: x,
-                    y: is_k ? ky : dy,
-                    expected_rd: is_k ? expected_rd_if_k : expected_rd_if_d});
+                    y: is_k ? ky : dy});
         endaction;
 
     (* fire_when_enabled *)
@@ -262,5 +269,167 @@ module mkDecoder (Decoder);
     method running_disparity = _rd._read;
 
 endmodule : mkDecoder
+
+typedef enum {
+    IdleLow,
+    IdleHigh
+} Idle deriving (Bits, Eq, FShow);
+
+typedef enum {
+    AwaitingFirstComma = 0,
+    AwaitingSecondComma,
+    AwaitingDecoderLocked,
+    AwaitingSufficientCharactersValid,
+    Decoding
+} DeserializerState deriving (Bits, Eq, FShow);
+
+module mkDeserializer #(Idle idle) (Deserializer);
+    Decoder decoder <- mkDecoder();
+    Reg#(DeserializerState) state <- mkRegA(AwaitingFirstComma);
+
+    // A bit vector indicating which of the last n characters were valid.
+    Reg#(Bit#(6)) decoded_value_valid_history <- mkRegA('0);
+    // Shift buffer to go from serial to parallel and decoder alignment.
+    Reg#(Character) shift_buffer <- mkRegA(idle == IdleHigh ? '1 : '0);
+    // A counter keeping track of the number of bits still needed for the next full character.
+    Reg#(UInt#(4)) bits_until_next_character <- mkRegU();
+
+    // Output bit indicating whether or not there is bit activity on the link. This can be used to
+    // detect the absence/presence of an encoder.
+    Reg#(Bool) activity_detected_ <- mkRegA(False);
+    // Output bit indicating whether or not the deserializer is locked to an encoder.
+    Reg#(Bool) locked_ <- mkRegA(False);
+
+    // Events.
+    RWire#(Bit#(1)) next_bit <- mkRWire();
+    RWire#(Bool) decoded_value_valid <- mkRWire();
+    PulseWire no_link_activity <- mkPulseWire();
+    PulseWire comma_received <- mkPulseWire();
+
+    function Bool awaiting_comma =
+        case (state)
+            AwaitingFirstComma: True;
+            AwaitingSecondComma: True;
+            default: False;
+        endcase;
+
+    function Bool link_idle = shift_buffer == (idle == IdleHigh ? '1 : '0);
+
+    function Bool comma_in_buffer =
+        shift_buffer[6:0] == 7'b1111100 ||
+        shift_buffer[6:0] == 7'b0000011;
+
+    function Action set_state(DeserializerState s) =
+        action
+            $display(fshow(s));
+            state <= s;
+            locked_ <= s == Decoding;
+        endaction;
+
+    function Action shift_in(Bit#(1) b) =
+        action
+            shift_buffer <= {b, shift_buffer[9:1]};
+        endaction;
+
+    (* fire_when_enabled, no_implicit_conditions *)
+    rule do_set_state;
+        // Update decode valid history. Note that the the updated history is not considered until
+        // the next cycle.
+        if (decoded_value_valid.wget() matches tagged Valid .is_valid) begin
+            decoded_value_valid_history <= {decoded_value_valid_history[4:0], pack(is_valid)};
+        end
+
+        let too_many_invalid_characters =
+            // The past four characters received were invalid.
+            decoded_value_valid_history[3:0] == '0 ||
+            // Five out of the past six characters received were invalid.
+            countOnes(decoded_value_valid_history) < 2;
+
+        let suffucient_valid_characters =
+            // The past four characters received were valid.
+            decoded_value_valid_history[3:0] == '1;
+
+        let decoder_locked = isValid(decoder.running_disparity());
+
+        if (state == Decoding && too_many_invalid_characters)
+            set_state(AwaitingFirstComma);
+        else if (state == AwaitingFirstComma && comma_received)
+            set_state(AwaitingSecondComma);
+        else if (state == AwaitingSecondComma && comma_received)
+            set_state(AwaitingDecoderLocked);
+        else if (state == AwaitingDecoderLocked && decoder_locked)
+            set_state(AwaitingSufficientCharactersValid);
+        else if (state == AwaitingSufficientCharactersValid && suffucient_valid_characters)
+            set_state(Decoding);
+    endrule
+
+    (* fire_when_enabled *)
+    rule do_receive_bit_and_decode_character (!awaiting_comma() && bits_until_next_character == 0);
+        decoder.character.put(shift_buffer);
+
+        if (next_bit.wget() matches tagged Valid .b) begin
+            shift_in(b);
+
+            if (link_idle()) begin
+                no_link_activity.send();
+            end
+
+            if (comma_in_buffer()) begin
+                $display("Comma");
+                comma_received.send();
+            end
+
+            bits_until_next_character <= 9;
+        end else begin
+            bits_until_next_character <= 10;
+        end
+    endrule
+
+    (* descending_urgency = "do_receive_bit_and_decode_character, do_receive_bit" *)
+    rule do_receive_bit (next_bit.wget() matches tagged Valid .b);
+        shift_in(b);
+
+        if (link_idle()) begin
+            no_link_activity.send();
+        end
+
+        if (comma_in_buffer()) begin
+            $display("Comma");
+            comma_received.send();
+        end
+
+        if (comma_in_buffer() || bits_until_next_character == 0)
+            // If do_decode_and_shift_in() does not fire because the receiver is searching for comma
+            // characters the buffer contents should be dropped. Failure to do so while the
+            // decoder is in "Decoding" state would cause the encoder/decoder to go out of sync.
+            bits_until_next_character <= 9;
+        else
+            bits_until_next_character <= bits_until_next_character - 1;
+    endrule
+
+    (* fire_when_enabled *)
+    rule do_discard_result (state != Decoding);
+        let r <- decoder.value.get();
+        decoded_value_valid.wset(result_valid(r));
+    endrule
+
+    (* no_implicit_conditions, fire_when_enabled *)
+    rule do_set_activity_detected;
+        activity_detected_ <= !no_link_activity;
+    endrule
+
+    interface Put in = toPut(next_bit);
+
+    interface Get out;
+        method ActionValue#(ValueResult) get() if (state == Decoding);
+            let r <- decoder.value.get();
+            decoded_value_valid.wset(result_valid(r));
+            return r;
+        endmethod
+    endinterface
+
+    method activity_detected = activity_detected_._read;
+    method locked = locked_._read;
+endmodule
 
 endpackage : Decoder8b10b

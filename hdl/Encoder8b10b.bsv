@@ -1,6 +1,12 @@
+// Copyright 2020 Oxide Computer Company
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 package Encoder8b10b;
 
-export mkEncoder;
+export mkEncoder, mkSerializer;
 
 import Assert::*;
 import FIFO::*;
@@ -286,5 +292,63 @@ module mkEncoderTest (Empty);
 
     mkTestTimeout(20);
 endmodule : mkEncoderTest
+
+module mkSerializer (Serializer);
+    Encoder encoder <- mkEncoder();
+
+    Reg#(Character) buffer <- mkRegU();
+    Reg#(UInt#(4)) bits_in_buffer <- mkRegA(0);
+
+    Reg#(Bool) encoding_error_ <- mkRegA(False);
+    Reg#(Bool) last_call_ <- mkRegA(True);
+
+    PulseWire shift_buffer <- mkPulseWire();
+    PulseWire invalid_result <- mkPulseWire();
+    PulseWire set_last_call <- mkPulseWire();
+
+    (* fire_when_enabled *)
+    rule do_get_character (bits_in_buffer == 0 || (bits_in_buffer == 1 && shift_buffer));
+        let c <- encoder.character.get();
+
+        buffer <= character_result_bits(c);
+        bits_in_buffer <= 10;
+
+        if (!result_valid(c)) begin
+            invalid_result.send();
+        end
+    endrule
+
+    (* descending_urgency = "do_get_character, do_shift_out" *)
+    rule do_shift_out (bits_in_buffer != 0 && shift_buffer);
+        buffer <= {1'b0, buffer[9:1]};
+        bits_in_buffer <= bits_in_buffer == 0 ? 0 : bits_in_buffer - 1;
+
+        if (bits_in_buffer == 4) begin
+            set_last_call.send();
+        end
+    endrule
+
+    (* no_implicit_conditions, fire_when_enabled *)
+    rule do_set_encoding_error;
+        encoding_error_ <= invalid_result;
+    endrule
+
+    (* no_implicit_conditions, fire_when_enabled *)
+    rule do_set_last_call;
+        last_call_ <= set_last_call;
+    endrule
+
+    interface Put in = encoder.value;
+
+    interface Get out;
+        method ActionValue#(Bit#(1)) get() if (bits_in_buffer != 0);
+            shift_buffer.send();
+            return buffer[0];
+        endmethod
+    endinterface
+
+    method encoding_error = encoding_error_._read;
+    method last_call = last_call_._read;
+endmodule
 
 endpackage : Encoder8b10b
