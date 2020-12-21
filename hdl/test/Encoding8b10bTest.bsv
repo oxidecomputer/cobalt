@@ -90,7 +90,7 @@ module mkLink #(Value idle_value) (Link);
     endrule
 
     (* fire_when_enabled *)
-    rule do_discard_received_values (discard_decoded_values);
+    rule do_discard_decoded_values (discard_decoded_values);
         let v <- get_decoded_value();
         $display(fshow(v));
     endrule
@@ -127,7 +127,7 @@ module mkConnectTest (Empty);
 
     mkAutoFSM(seq
         repeat(10) noAction;
-        link.connect(True, /* discard decoded values */);
+        link.connect(True /* discard decoded values */);
         link.await_locked();
         $finish;
     endseq);

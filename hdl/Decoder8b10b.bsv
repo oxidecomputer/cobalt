@@ -154,7 +154,7 @@ module mkDecoder (Decoder);
             let ky = lookup_ky(c, k28y_if_rdn);
             let dy = lookup_dy(c);
 
-            // Determine if a the decoder should have a given running disparity.
+            // Determine if the decoder should have a given running disparity.
             Maybe#(RunningDisparity) expected_rd_if_k =
                 tagged Valid (k_if_rdn ? RunningNegative : RunningPositive);
 
@@ -214,14 +214,14 @@ module mkDecoder (Decoder);
             // tracking an encoder.
             //
             // If we were to always test against the running disparity it would be difficult to
-            // start tracking an encoder as comma characters are encoded as K values and higher
+            // start tracking an encoder since comma characters are encoded as K values. Higher
             // layer protocols purposefully require frequent transmission of comma characters in
             // order to aid receiver synchronization. Data characters would eventually synchronize
             // the decoder, but this would result in needlessly poor performance.
             //
             // The downside of assuming good intent for K characters when the decoder is not
             // synchronized is that if bit errors occur which result in erroneous received K
-            // characters the decoder may start tracking with the wrong disparity. But subsequent
+            // characters, the decoder may start tracking with the wrong disparity. But subsequent
             // characters are likely to then violate the running disparity, causing a reset. A bit
             // of hysteresis by a receiver using this decoder should resolve that and avoid invalid
             // values being passed to higher layer protocols.
@@ -399,9 +399,10 @@ module mkDeserializer #(Idle idle) (Deserializer);
         end
 
         if (comma_in_buffer() || bits_until_next_character == 0)
-            // If do_decode_and_shift_in() does not fire because the receiver is searching for comma
-            // characters the buffer contents should be dropped. Failure to do so while the
-            // decoder is in "Decoding" state would cause the encoder/decoder to go out of sync.
+            // If "do_receive_bit_and_decode_character" does not fire because the receiver is
+            // searching for comma characters or because the encoder pipeline has stalled, the
+            // buffer contents should be dropped. Failure to do so while the decoder is in
+            // "Decoding" state would cause the encoder/decoder to go out of sync.
             bits_until_next_character <= 9;
         else
             bits_until_next_character <= bits_until_next_character - 1;
