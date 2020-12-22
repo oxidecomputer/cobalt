@@ -47,13 +47,16 @@ def nextpnr_bitstream(package, name, *,
         # Pack device configuration file into a bitstream.
         bitstream_env = ctx.env.subset_require(_pack_keys)
         bitstream_out = name + '.bit'
+        bitstream_path = package.outpath(bitstream_env, bitstream_out)
         bitstream = cobble.target.Product(
             env = bitstream_env,
             inputs = config.outputs,
-            outputs = [package.outpath(bitstream_env, bitstream_out)],
-            symlink_as = package.linkpath(bitstream_out),
+            outputs = [bitstream_path],
             rule = 'pack_ecp5_bitstream',
         )
+        bitstream.symlink(
+            target = bitstream_path,
+            source = package.linkpath(bitstream_out))
 
         return (extra, [config, bitstream])
 

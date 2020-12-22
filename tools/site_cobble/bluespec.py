@@ -348,24 +348,28 @@ def bluesim_binary(package, name, *,
 
         # Set up the env for the Bluesim output.
         out_dir = package.outpath(env)
-        out_path = package.outpath(env, name)
+        script_path = package.outpath(env, name)
+        so_name = name + '.so'
+        so_path = package.outpath(env, so_name)
         p_env = env.derive({
             BSC_FLAGS.name: [
                 '-simdir', out_dir,
             ],
         })
 
-        binary = cobble.target.Product(
+        simulation = cobble.target.Product(
             env = p_env,
             inputs = [top_path],
-            outputs = [out_path],
+            outputs = ([script_path], [so_path]),
             rule = 'link_bluesim_binary',
             order_only = stamp.outputs,
-            symlink_as = package.linkpath(name),
         )
-        binary.expose(path = out_path, name = name)
+        simulation.expose(path = script_path, name = 'script')
+        simulation.symlink(target = script_path, source = package.linkpath(name))
+        simulation.expose(path = so_path, name = 'so')
+        simulation.symlink(target = so_path, source = package.linkpath(so_name))
 
-        return (local, [binary, stamp])
+        return (local, [simulation, stamp])
 
     return cobble.target.Target(
         package = package,
