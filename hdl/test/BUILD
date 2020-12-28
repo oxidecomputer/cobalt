@@ -12,6 +12,7 @@ bluespec_library('Encoding8b10bTest',
 bluespec_sim('encoding8b10b_tests',
     top = 'Encoding8b10bTest.bsv',
     modules = [
+        'mkEncoderTest',
         'mkConnectTest',
         'mkDisconnectTest',
     ],
@@ -27,5 +28,6 @@ def encoding8b10b_test(name, module):
             ':encoding8b10b_tests',
         ])
 
+encoding8b10b_test('encoder_test', 'mkEncoderTest')
 encoding8b10b_test('serdes_connect_test', 'mkConnectTest')
 encoding8b10b_test('serdes_disconnect_test', 'mkDisconnectTest')

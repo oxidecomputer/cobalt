@@ -49,4 +49,3 @@ def test_module(name, library, top, module):
         ])
 
 test_module('fractional_strobe_test', 'Strobe', 'Strobe.bsv', 'mkFractionalStrobeTest')
-test_module('8b10b_encoder_test', 'Encoding8b10b', 'Encoder8b10b.bsv', 'mkEncoderTest')

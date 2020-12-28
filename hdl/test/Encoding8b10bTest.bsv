@@ -16,6 +16,49 @@ import Encoding8b10b::*;
 import TestUtils::*;
 
 
+//
+// A minimal test of some expected flows. This is by no means exhaustive and merely acts as a
+// cursory check (have something to compile) and a practical example of the Encoder.
+//
+(* synthesize *)
+module mkEncoderTest (Empty);
+    Encoder encoder <- mkEncoder();
+
+    function Action assert_rd_and_character(RunningDisparity expected_rd, Character expected_c) =
+        action
+            let actual_c <- encoder.character.get();
+            $display(fshow(encoder.running_disparity()), fshow(actual_c));
+            dynamicAssert(encoder.running_disparity() == expected_rd, "running disparity differs");
+            dynamicAssert(actual_c == tagged Valid expected_c, "characters differ");
+        endaction;
+
+    mkAutoFSM(seq
+        // Test pipeline, no RD flip.
+        encoder.value.put(mk_d(0, 0));
+        encoder.value.put(mk_d(0, 0));
+        assert_rd_and_character(RunningNegative, mk_c('b100111_0100));
+        assert_rd_and_character(RunningNegative, mk_c('b100111_0100));
+
+        // Test RD flip.
+        encoder.value.put(mk_d(3, 0));
+        assert_rd_and_character(RunningPositive, mk_c('b110001_1011));
+        encoder.value.put(mk_d(3, 0));
+        assert_rd_and_character(RunningNegative, mk_c('b110001_0100));
+
+        // Test K values.
+        encoder.value.put(mk_k(28, 0));
+        assert_rd_and_character(RunningNegative, mk_c('b001111_0100));
+        encoder.value.put(mk_k(0, 0)); // invalid k
+        action
+            let result <- encoder.character.get();
+            $display(fshow(encoder.running_disparity()), fshow(result));
+            dynamicAssert(result == tagged Invalid mk_c('b100111_0100), "expected invalid");
+        endaction
+    endseq);
+
+    mkTestTimeout(20);
+endmodule : mkEncoderTest
+
 interface Link;
     interface Put#(Value) send;
     interface Get#(ValueResult) receive;
