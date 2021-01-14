@@ -70,15 +70,15 @@ module mkSerializer (Serializer);
 
         if (shift_out_bit) begin
             // Split (remainder of) input byte.
-            let head = pack(fromMaybe(?, i_))[0];
-            let tail = tagged Valid ({0, pack(fromMaybe(?, i_))[7:1]});
+            let head = lsb(fromMaybe(?, i_));
+            let tail = bitconcat(0, fromMaybe(?, i_)[7:1]);
 
             // Possible next states.
             let start_or_idle = isValid(i_) ?
                   tuple3(Start, i_, 0)
                 : tuple3(Idle, tagged Invalid, 1);
             let stop = tuple3(Stop, tagged Invalid, 1);
-            let dissipate_bit = tuple3(next_state(state), tail, head);
+            let dissipate_bit = tuple3(next_state(state), tagged Valid (tail), head);
 
             // Select and commit next state.
             match {.state_next, .i_next, .o_next} =
@@ -155,7 +155,7 @@ module mkDeserializer (Deserializer);
             let accumulate_bit =
                 tuple2(
                     next_state(state),
-                    tagged Valid ({b, pack(fromMaybe(?, o_))[7:1]}));
+                    tagged Valid bitconcat(b, fromMaybe(?, o_)[7:1]));
 
             // Select and commit next state based on incoming bit.
             match {.state_next, .o_next} =

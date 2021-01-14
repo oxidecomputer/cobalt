@@ -27,22 +27,22 @@ module mkStrobe #(Integer step_, UInt#(sz) init) (Strobe#(sz))
     Reg#(Bool) _pulse <- mkRegA(False);
 
     RWire#(UInt#(sz)) set <- mkRWire();
-    Wire#(Bit#(1)) pulse_next <- mkDWire(0);
+    Wire#(Bool) pulse_next <- mkDWire(False);
     PulseWire tick <- mkPulseWire();
 
     (* fire_when_enabled *)
     rule do_update (isValid(set.wget()) || tick);
-        UInt#(sz_overflow) count_next_base = extend(
-            isValid(set.wget()) ? fromMaybe(?, set.wget()) : count);
-        let count_next = count_next_base + fromInteger(step_);
+        // If a new value is set, use this as the base. Use the current count otherwise.
+        UInt#(sz_overflow) base = extend(fromMaybe(count, set.wget()));
+        let count_next = base + fromInteger(step_);
 
         count <= truncate(count_next);
-        pulse_next <= pack(count_next)[valueof(sz)];
+        pulse_next <= unpack(msb(count_next));
     endrule
 
     (* no_implicit_conditions, fire_when_enabled *)
     rule do_pulse;
-        _pulse <= unpack(pulse_next);
+        _pulse <= pulse_next;
     endrule
 
     method _read = _pulse._read;
