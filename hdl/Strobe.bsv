@@ -30,14 +30,17 @@ module mkStrobe #(Integer step_, UInt#(sz) init) (Strobe#(sz))
     Wire#(Bool) pulse_next <- mkDWire(False);
     PulseWire tick <- mkPulseWire();
 
-    (* fire_when_enabled *)
-    rule do_update (isValid(set.wget()) || tick);
-        // If a new value is set, use this as the base. Use the current count otherwise.
-        UInt#(sz_overflow) base = extend(fromMaybe(count, set.wget()));
-        let count_next = base + fromInteger(step_);
+    (* no_implicit_conditions, fire_when_enabled *)
+    rule do_set (set.wget matches tagged Valid .value);
+        count <= value;
+    endrule
 
-        count <= truncate(count_next);
-        pulse_next <= unpack(msb(count_next));
+    (* no_implicit_conditions, fire_when_enabled *)
+    rule do_tick (tick && !isValid(set.wget()));
+        UInt#(sz_overflow) sum = extend(count) + fromInteger(step_);
+
+        count <= truncate(sum);
+        pulse_next <= unpack(msb(sum));
     endrule
 
     (* no_implicit_conditions, fire_when_enabled *)
@@ -51,8 +54,7 @@ module mkStrobe #(Integer step_, UInt#(sz) init) (Strobe#(sz))
     method step = step_;
 endmodule : mkStrobe
 
-module mkFractionalStrobe #(Integer fraction, UInt#(sz) init) (Strobe#(sz))
-        provisos (Add#(sz, 1, sy));
+module mkFractionalStrobe #(Integer fraction, UInt#(sz) init) (Strobe#(sz));
     let step = fraction < 1 ? error("fraction < 1") : 2 ** valueof(sz) / fraction;
     let _s <- mkStrobe(step, init);
     return _s;
