@@ -1,0 +1,20 @@
+set_io clk_12mhz 21
+set_io -pullup yes RST_N 91
+
+set_io --warn-no-port led[0] 99
+set_io --warn-no-port led[1] 98
+set_io --warn-no-port led[2] 97
+set_io --warn-no-port led[3] 96
+set_io --warn-no-port led[4] 95
+
+set_io --warn-no-port dcd_n 1
+set_io --warn-no-port dsr_n 2
+set_io --warn-no-port dtr_n 3
+set_io --warn-no-port cts_n 4
+set_io --warn-no-port rts_n 7
+set_io --warn-no-port ftdi_rxd 8
+set_io --warn-no-port ftdi_txd 9
+
+set_io --warn-no-port irda_txd 105
+set_io --warn-no-port irda_rxd 106
+set_io --warn-no-port irda_sd  107
