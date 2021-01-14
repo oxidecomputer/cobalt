@@ -52,8 +52,10 @@ def _any_bitstream(package, name, *,
         nextpnr_family_name,
         pnr_keys,
         pack_keys,
+        flag_key,
         env,
         design,
+        pre_pack = [],
         deps = [],
         local: Delta = {},
         extra: Delta = {}):
@@ -62,12 +64,15 @@ def _any_bitstream(package, name, *,
 
     def mkusing(ctx):
         # Place and route design and produce a device configuration file in text format.
-        config_env = ctx.env.subset_require(pnr_keys)
+        pps = ctx.rewrite_sources(pre_pack)
+        config_env = ctx.env.subset_require(pnr_keys).derive({
+            flag_key.name: ["--pre-pack " + s for s in pps],
+        })
         config = cobble.target.Product(
             env = config_env,
             inputs = ctx.rewrite_sources([design]),
             outputs = [package.outpath(config_env, name + '.config')],
-            implicit = [ctx.env[CONSTRAINTS.name]],
+            implicit = [ctx.env[CONSTRAINTS.name]] + pps,
             rule = 'place_and_route_' + nextpnr_family_name + '_design',
         )
 
@@ -102,17 +107,20 @@ def nextpnr_ecp5_bitstream(package, name, *,
         env,
         design,
         deps = [],
+        pre_pack = [],
         local: Delta = {},
         extra: Delta = {}):
     return _any_bitstream(package, name,
             env = env,
             design = design,
             deps = deps,
+            pre_pack = pre_pack,
             local = local,
             extra = extra,
             nextpnr_family_name = "ecp5",
             pnr_keys = _pnr_ecp5_keys,
             pack_keys = _pack_ecp5_keys,
+            flag_key = FLAGS_ECP5,
     )
 
 @target_def
@@ -120,17 +128,20 @@ def nextpnr_ice40_bitstream(package, name, *,
         env,
         design,
         deps = [],
+        pre_pack = [],
         local: Delta = {},
         extra: Delta = {}):
     return _any_bitstream(package, name,
             env = env,
             design = design,
             deps = deps,
+            pre_pack = pre_pack,
             local = local,
             extra = extra,
             nextpnr_family_name = "ice40",
             pnr_keys = _pnr_ice40_keys,
             pack_keys = _pack_ice40_keys,
+            flag_key = FLAGS_ICE40,
     )
 
 ninja_rules = {
