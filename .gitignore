@@ -1,3 +1,4 @@
 # Cobble/Python ignores
+BUILD.vars
 /build
 __pycache__

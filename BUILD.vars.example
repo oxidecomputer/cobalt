@@ -1,0 +1,12 @@
+[bluespec]
+bin = "/usr/local/bin/bsc"
+
+[yosys]
+bin = "/usr/local/bin/yosys"
+libdir = "/usr/local/share/yosys"
+
+[nextpnr]
+ecp5 = "/usr/local/bin/nextpnr-ecp5"
+ecp5_pack = "/usr/local/bin/ecppack"
+ice40 = "/usr/local/bin/nextpnr-ice40"
+ice40_pack = "/usr/local/bin/icepack"
