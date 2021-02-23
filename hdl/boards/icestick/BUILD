@@ -42,11 +42,11 @@ yosys_design('uart_loopback',
     top_module = 'mkUARTLoopback',
     sources = [
         ':examples#mkUARTLoopback',
-        # TODO (arjen): make adding required Verilog modules portable.
-        '/opt/bluespec/lib/Verilog/FIFO1.v',
+        '//vnd/bluespec:Verilog.v#out',
     ],
     deps = [
         ':examples',
+        '//vnd/bluespec:Verilog.v',
     ])
 
 nextpnr_ice40_bitstream('uart_loopback_icestick',
