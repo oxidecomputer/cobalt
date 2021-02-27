@@ -51,7 +51,7 @@ yosys_design('uart_loopback',
         '//vnd/bluespec:Verilog.v',
     ])
 
-nextpnr_ecp5_bitstream('uart_loopback_ulx3s',
+nextpnr_ecp5_bitstream('uart_loopback_ecp5_evn',
     env = 'ecp5_evn',
     design = ':uart_loopback#json',
     deps = [
