@@ -1,5 +1,6 @@
 [bluespec]
 bin = "/usr/local/bin/bsc"
+libdir = "/usr/local/lib/bluespec"
 
 [yosys]
 bin = "/usr/local/bin/yosys"

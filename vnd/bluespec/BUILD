@@ -1,6 +1,6 @@
 # -*- python -*- vim:syntax=python:
 
-VERILOG_DIR = VARS.get('bluespec', 'libdir', default = '/usr/local/lib/bluespec/Verilog')
+VERILOG_DIR = VARS.get('bluespec', 'libdir', default = '/usr/local/lib/bluespec')
 VERILOG_FILES = [
     'ASSIGN1.v',
     'BRAM1.v',
@@ -66,7 +66,7 @@ VERILOG_FILES = [
     #'ProbeMux.v',
     #'ProbeTrigger.v',
     #'ProbeValue.v',
-    #'ProbeWire.v',
+    'ProbeWire.v',
     'RWire.v',
     'RWire0.v',
     'RegA.v',
