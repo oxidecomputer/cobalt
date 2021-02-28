@@ -8,8 +8,8 @@ some of these pieces on readily
 [development](https://radiona.org/ulx3s/) [boards](https://www.latticesemi.com/icestick) using a
 fully open source [synthesis](https://github.com/YosysHQ/yosys)
 [toolchain](https://github.com/YosysHQ/nextpnr), we figured this work and the implementation of its
-[build system](https://github.com/cbiffle/cobble-build) may serve as examples for others to use
-Bluespec in their own projects.
+[build system](https://github.com/cbiffle/cobble-build) may serve as practical examples for others
+to use Bluespec in their own projects.
 
 ## Getting Started
 
@@ -50,7 +50,8 @@ Please install a copy if your system does not already have one.
 
 ### Set BUILD.vars
 
-In order to point Cobble at the right toolchain pieces, copy ```BUILD.vars.example``` and edit the paths in this file to match your installed toolchain:
+In order to point Cobble at the right toolchain pieces, copy ```BUILD.vars.example``` and edit the
+paths in this file to match your installed toolchain:
 ```
 cp BUILD.vars.example BUILD.vars
 $EDITOR BUILD.vars
@@ -72,6 +73,7 @@ To build and run one of the test benches:
 The output of the command above should be the following, indicating successful "transmission" of two
 bytes:
 ```
+% latest/hdl/examples/uart_loopback_test
 'h55
 'haa
 ```
@@ -87,7 +89,8 @@ Finally, to build all possible targets simply run:
 ./cobble build
 ```
 
-Happy hacking!
+If you are wondering where to go from here, we suggest heading over to the (examples)[hdl/examples]
+directory. Happy hacking!
 
 ## FAQ
 
