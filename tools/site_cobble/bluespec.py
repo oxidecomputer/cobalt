@@ -352,6 +352,7 @@ def bluesim_binary(package, name, *,
         so_name = name + '.so'
         so_path = package.outpath(env, so_name)
         p_env = env.derive({
+            BSC_BDIR.name: os.path.dirname(top_path),
             BSC_FLAGS.name: [
                 '-simdir', out_dir,
             ],
@@ -364,10 +365,13 @@ def bluesim_binary(package, name, *,
             rule = 'link_bluesim_binary',
             order_only = stamp.outputs,
         )
-        simulation.expose(path = script_path, name = 'script')
-        simulation.symlink(target = script_path, source = package.linkpath(name))
         simulation.expose(path = so_path, name = 'so')
+        simulation.expose(path = script_path, name = 'script')
         simulation.symlink(target = so_path, source = package.linkpath(so_name))
+        simulation.symlink(
+            target = script_path,
+            source = package.linkpath(name),
+            order_only = [package.linkpath(so_name)])
 
         return (local, [simulation, stamp])
 
@@ -390,7 +394,7 @@ ninja_rules = {
         'description': 'BS MODULES $in',
     },
     'link_bluesim_binary': {
-        'command': '$bsc $bsc_flags -o $out $in',
+        'command': '$bsc $bsc_flags -bdir $bsc_bdir -o $out $in',
         'description': 'BLUESIM $in',
     },
     'bluespec_dep_scan': {
