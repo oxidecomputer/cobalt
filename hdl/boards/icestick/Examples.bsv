@@ -15,31 +15,41 @@ import UARTLoopback::*;
 
 (* synthesize, default_clock_osc="clk_12mhz" *)
 module mkBlinky (Top);
+    FTDI ftdi_noop <- mkFTDITieOff();
+    IRDA irda_noop <- mkIRDATieOff();
     Blinky#(12_000_000) blinky <- Blinky::mkBlinky();
 
+    interface FTDI ftdi = ftdi_noop;
+    interface IRDA irda = irda_noop;
     method led() = {'0, blinky.led()};
-
-    interface FTDI ftdi;
-        // Ignore FTDI IO.
-        method Bit#(1) rxd() = 1;
-        method Action txd(Bit#(1) val);
-        endmethod
-    endinterface
 endmodule
 
 (* synthesize, default_clock_osc="clk_12mhz" *)
 module mkUARTLoopback (Top);
+    IRDA irda_noop <- mkIRDATieOff();
     UARTLoopback#(12_000_000, 115200, 8) loopback <- UARTLoopback::mkUARTLoopback();
 
     // RX input register. Since the output of this register goes into additional FFs as part of the
     // bit sampler no meta instability is expected to occur.
     Reg#(Bit#(1)) rx_sync <- mkRegU();
 
+    interface IRDA irda = irda_noop;
+
     interface FTDI ftdi;
         method rxd = loopback.serial.tx;
         method Action txd(Bit#(1) val);
             rx_sync <= val;
             loopback.serial.rx(rx_sync);
+        endmethod
+
+        // Ignore flow control.
+        method Action rts_n(Bit#(1) val);
+        endmethod
+        method Bit#(1) cts_n() = 0;
+
+        method Bit#(1) dcd_n() = 0;
+        method Bit#(1) dsr_n() = 0;
+        method Action dtr_n(Bit#(1) val);
         endmethod
     endinterface
 
