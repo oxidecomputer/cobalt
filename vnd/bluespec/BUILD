@@ -28,7 +28,8 @@ VERILOG_FILES = [
     'ConfigRegA.v',
     'ConfigRegN.v',
     'ConfigRegUN.v',
-    'ConstrainedRandom.v',
+    # TODO (arjen): Yosys does not support $random?
+    #'ConstrainedRandom.v',
     # TODO (arjen): Yosys does not like the tri type, determine how to enable or replace.
     #'ConvertFromZ.v',
     #'ConvertToZ.v',
@@ -73,7 +74,7 @@ VERILOG_FILES = [
     'RegAligned.v',
     'RegFile.v',
     # TODO (arjen): Yosys tries to memreadh from an empty define, determine how to work around this.
-    #RegFileLoad.v,
+    #'RegFileLoad.v',
     'RegN.v',
     'RegTwoA.v',
     'RegTwoN.v',
@@ -84,7 +85,7 @@ VERILOG_FILES = [
     'ResetMux.v',
     'ResetToBool.v',
     # TODO (arjen): Yosys does not like the tri type, determine how to enable or replace.
-    #ResolveZ.v,
+    #'ResolveZ.v',
     'RevertReg.v',
     'SampleReg.v',
     'ScanIn.v',
@@ -109,7 +110,8 @@ VERILOG_FILES = [
     'SyncReset0.v',
     'SyncResetA.v',
     'SyncWire.v',
-    'TriState.v',
+    # TODO (arjen): Disabled until we figure out how to suppress the Yosys warning.
+    #'TriState.v',
     'UngatedClockMux.v',
     'UngatedClockSelect.v',
 ]
