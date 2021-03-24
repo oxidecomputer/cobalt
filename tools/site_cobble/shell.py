@@ -8,32 +8,33 @@ import cobble.env
 from cobble.plugin import *
 
 
-BIN = cobble.env.overrideable_string_key('cat',
+CAT_BIN = cobble.env.overrideable_string_key('shell_cat',
         default = 'cat',
         help = 'Path of cat binary.')
-FLAGS = cobble.env.appending_string_seq_key('cat_flags',
+CAT_FLAGS = cobble.env.appending_string_seq_key('shell_cat_flags',
         help = 'Extra flags to pass to cat.')
 
-KEYS = frozenset([BIN, FLAGS])
-_keys = frozenset([BIN.name, FLAGS.name])
+KEYS = frozenset([CAT_BIN, CAT_FLAGS])
+
+_cat_keys = frozenset([CAT_BIN.name, CAT_FLAGS.name])
 
 
 @target_def
-def cat(package, name, *,
+def shell_cat(package, name, *,
         deps = [],
         sources = [],
         local: Delta = {},
         using: Delta = {}):
     def mkusing(ctx):
-        env = ctx.env.subset_require(_keys)
+        env = ctx.env.subset_require(_cat_keys)
         output = package.outpath(env, name)
         product = cobble.target.Product(
             env = env,
             inputs = sources,
             outputs = [output],
-            rule = 'cat')
-        product.expose(path = output, name = 'out')
+            rule = 'shell_cat')
 
+        product.expose(path = output, name = name)
         return (using, [product])
 
     return cobble.target.Target(
@@ -46,8 +47,8 @@ def cat(package, name, *,
 
 
 ninja_rules = {
-    'cat': {
-        'command': '$cat $cat_flags $in > $out',
+    'shell_cat': {
+        'command': '$shell_cat $shell_cat_flags $in > $out',
         'description': 'CAT $out',
     }
 }

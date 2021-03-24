@@ -115,7 +115,7 @@ VERILOG_FILES = [
 ]
 
 
-cat('Verilog.v',
+shell_cat('Verilog.v',
     sources = [
         VERILOG_DIR + '/Verilog/' + module_file
         for module_file

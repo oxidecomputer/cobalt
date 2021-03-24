@@ -44,7 +44,7 @@ yosys_design('uart_loopback',
     top_module = 'mkUARTLoopback',
     sources = [
         ':examples#mkUARTLoopback',
-        '//vnd/bluespec:Verilog.v#out',
+        '//vnd/bluespec:Verilog.v#Verilog.v',
     ],
     deps = [
         ':examples',
