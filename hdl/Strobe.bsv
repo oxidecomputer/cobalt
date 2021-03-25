@@ -14,13 +14,23 @@ import Connectable::*;
 import StmtFSM::*;
 
 
+//
+// Strobe(..) is an interface loosly mimicking PulseWire(..) but for periodic pulses. It is intended
+// to be implemented by modules which generate divided versions of the clock driving it, useful for
+// example for sampling incoming data from external interfaces. Note that the _write(..) function
+// allows for strobes which are not periodic at all.
+//
 interface Strobe#(numeric type sz);
     method Bool _read();
     method Action _write(UInt#(sz) val);
     method Action send();
+    (* always_enabled *)
     method Integer step();
 endinterface : Strobe
 
+//
+// mkStrobe returns an integer divided strobe of the clock driving it.
+//
 module mkStrobe #(Integer step_, UInt#(sz) init) (Strobe#(sz))
         provisos (Add#(sz, 1, sz_overflow));
     Reg#(UInt#(sz)) count <- mkRegA(init);
@@ -52,8 +62,13 @@ module mkStrobe #(Integer step_, UInt#(sz) init) (Strobe#(sz))
     method _write = set.wset;
     method send = tick.send;
     method step = step_;
-endmodule : mkStrobe
+endmodule: mkStrobe
 
+//
+// mkFractionalStrobe implements a fractional divided strobe. The jitter of this strobe is
+// determined by the number of bits used to represent the fraction, but a larger number of bits
+// means a longer carry chain for the counter.
+//
 module mkFractionalStrobe #(Integer fraction, UInt#(sz) init) (Strobe#(sz));
     let step = fraction < 1 ? error("fraction < 1") : 2 ** valueof(sz) / fraction;
     let _s <- mkStrobe(step, init);
@@ -72,7 +87,7 @@ endinstance
 
 (* synthesize *)
 module mkFractionalStrobeTest (Empty);
-    Strobe#(16) s <- mkFractionalStrobe(100_000 / 9600, 0);
+    Strobe#(16) s <- mkFractionalStrobe(1000 / 96, 0); // expect a pulse every ~11th cycle.
 
     mkAutoFSM(seq
         repeat(11) action
@@ -80,7 +95,7 @@ module mkFractionalStrobeTest (Empty);
             dynamicAssert(!s, "did not expect pulse");
         endaction
         dynamicAssert(s, "expected pulse");
-        $finish;
+        $display("Done");
     endseq);
 endmodule
 
