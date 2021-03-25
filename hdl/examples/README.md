@@ -10,7 +10,7 @@ We hope these examples are useful for others as they explorer the use of Bluespe
 degree the synthesis tooling) and we intend to steadily grow this set over time. Note that the
 modules found in this directory are board (or for that matter simulator) agnostic. For board
 specific instantiations, please see the ```Examples.bsv``` file in each of the respective board
-directories under [hdl/boards](hdl/boards).
+directories under [hdl/boards](../boards).
 
 ## Contents
 

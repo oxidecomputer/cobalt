@@ -89,7 +89,7 @@ Finally, to build all possible targets simply run:
 ./cobble build
 ```
 
-If you are wondering where to go from here, we suggest heading over to the (examples)[hdl/examples]
+If you are wondering where to go from here, we suggest heading over to the [examples](hdl/examples)
 directory. Happy hacking!
 
 ## FAQ
