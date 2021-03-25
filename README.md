@@ -9,7 +9,7 @@ some of these pieces on readily
 fully open source [synthesis](https://github.com/YosysHQ/yosys)
 [toolchain](https://github.com/YosysHQ/nextpnr), we figured this work and the implementation of its
 [build system](https://github.com/cbiffle/cobble-build) may serve as practical examples for others
-to use Bluespec in their own projects.
+on how to use Bluespec in their own projects.
 
 ## Getting Started
 
@@ -24,7 +24,7 @@ To clone the repo, including its Cobble dependency, run the following. Use the U
 git clone --recursive https://github.com/oxidecomputer/cobalt
 ```
 
-If you happen to have cloned the repo without the submodules, you can do so at a later time:
+If you happen to have cloned the repo without the submodules, you can initialize them like so:
 ```
 git submodule update --init --recursive
 ```
@@ -90,7 +90,8 @@ Finally, to build all possible targets simply run:
 ```
 
 If you are wondering where to go from here, we suggest heading over to the [examples](hdl/examples)
-directory. Happy hacking!
+directory or building and trying one of the bitstreams for the other supported [boards](hdl/boards).
+Happy hacking!
 
 ## FAQ
 

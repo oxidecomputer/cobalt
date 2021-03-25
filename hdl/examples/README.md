@@ -2,8 +2,8 @@
 
 This directory contains a curated set of examples demonstrating either the use of the modules found
 in this repository or some aspect of BSV and how it interacts with various tools to produce working
-bitstreams for some sample set of development boards. We use these primarily to demonstrate some
-small aspect of capability in a known, small design before incorporating it into more complicated
+bitstreams for some sample set of development boards. We use these primarily to prove some small
+aspect or capability in a known, small design before incorporating it into more complicated
 scenarios.
 
 We hope these examples are useful for others as they explorer the use of Bluespec (and to a lesser
