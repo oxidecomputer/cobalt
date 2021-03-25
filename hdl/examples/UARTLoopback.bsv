@@ -107,12 +107,11 @@ module mkUARTLoopbackTest (Empty);
     mkAutoFSM(seq
         ser.in.put('h55);
         ser.in.put('hAA);
-        display_get_and_assert(des.out, 'h55, "expected 0x55");
-        display_get_and_assert(des.out, 'hAA, "expected 0xAA");
-        $finish;
+        assert_get_and_display_fshow(des.out, 'h55, "expected 0x55");
+        assert_get_and_display_fshow(des.out, 'hAA, "expected 0xAA");
     endseq);
 
-    mkTestTimeout(10000);
+    mkTestWatchdog(10000);
 endmodule
 
 endpackage

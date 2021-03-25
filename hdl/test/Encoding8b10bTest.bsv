@@ -56,7 +56,7 @@ module mkEncoderTest (Empty);
         endaction
     endseq);
 
-    mkTestTimeout(20);
+    mkTestWatchdog(20);
 endmodule : mkEncoderTest
 
 interface Link;
@@ -172,10 +172,9 @@ module mkConnectTest (Empty);
         repeat(10) noAction;
         link.connect(True /* discard decoded values */);
         link.await_locked();
-        $finish;
     endseq);
 
-    mkTestTimeout(100);
+    mkTestWatchdog(100);
 endmodule
 
 (* synthesize *)
@@ -188,10 +187,9 @@ module mkDisconnectTest (Empty);
         link.disconnect();
         link.await_not_locked();
         dynamicAssert(link.decoding_errors() == 4, "expected 4 decoding errors");
-        $finish;
     endseq);
 
-    mkTestTimeout(150);
+    mkTestWatchdog(150);
 endmodule
 
 endpackage

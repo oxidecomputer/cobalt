@@ -126,10 +126,9 @@ module mkSerializerTest (Empty);
         assert_get(ser.out, 0, "expected low msb");
         assert_get(ser.out, 1, "expected stop bit");
         assert_get(ser.out, 1, "expected idle bit");
-        $finish;
     endseq);
 
-    mkTestTimeout(15);
+    mkTestWatchdog(15);
 endmodule
 
 module mkDeserializer (Deserializer);
@@ -196,7 +195,7 @@ endmodule : mkDeserializer
 (* synthesize *)
 module mkSerDesTest (Empty);
     // 10 bit cycles + 2 cycles to latch input/ouput bytes + 1 cycle to assert output.
-    mkTestTimeout(10 + 2 + 1);
+    mkTestWatchdog(10 + 2 + 1);
 
     Serializer ser <- mkSerializer();
     Deserializer des <- mkDeserializer();
@@ -206,7 +205,6 @@ module mkSerDesTest (Empty);
     mkAutoFSM(seq
         ser.in.put(8'h55);
         assert_get(des.out, 8'h55, "expected 'h55");
-        $finish;
     endseq);
 endmodule
 
