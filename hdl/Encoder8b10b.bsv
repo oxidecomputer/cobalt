@@ -248,7 +248,7 @@ module mkEncoder(Encoder);
     interface Get character = toGet(character_result);
     method running_disparity = rd._read;
 
-endmodule : mkEncoder
+endmodule: mkEncoder
 
 module mkSerializer (Serializer);
     Encoder encoder <- mkEncoder();
@@ -306,6 +306,6 @@ module mkSerializer (Serializer);
 
     method encoding_error = encoding_error_._read;
     method last_call = last_call_._read;
-endmodule
+endmodule: mkSerializer
 
-endpackage : Encoder8b10b
+endpackage: Encoder8b10b

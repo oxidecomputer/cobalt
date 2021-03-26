@@ -8,7 +8,8 @@ package Board;
 
 export TopMinimal(..);
 
-(* always_ready, always_enabled *)
+
+(* always_enabled *)
 interface TopMinimal;
     method Bit#(8) led;
     (* prefix = "" *)
@@ -19,4 +20,4 @@ interface TopMinimal;
     method Bit#(1) uart_tx();
 endinterface
 
-endpackage : Board
+endpackage: Board

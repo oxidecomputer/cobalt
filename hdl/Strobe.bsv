@@ -26,7 +26,7 @@ interface Strobe#(numeric type sz);
     method Action send();
     (* always_enabled *)
     method Integer step();
-endinterface : Strobe
+endinterface
 
 //
 // mkStrobe returns an integer divided strobe of the clock driving it.
@@ -99,4 +99,4 @@ module mkFractionalStrobeTest (Empty);
     endseq);
 endmodule
 
-endpackage : Strobe
+endpackage: Strobe

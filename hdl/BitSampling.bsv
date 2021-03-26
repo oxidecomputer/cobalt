@@ -113,4 +113,4 @@ module mkAsyncBitSampler
     method search_for_bit_edge = search_for_bit_edge_.send;
 endmodule
 
-endpackage : BitSampling
+endpackage: BitSampling

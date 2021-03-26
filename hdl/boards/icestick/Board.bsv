@@ -61,11 +61,11 @@ module mkIRDATieOff (IRDA);
     endmethod
 endmodule
 
-(* always_ready, always_enabled *)
+(* always_enabled *)
 interface Top;
     interface FTDI ftdi;
     interface IRDA irda;
     method Bit#(5) led;
 endinterface
 
-endpackage : Board
+endpackage: Board

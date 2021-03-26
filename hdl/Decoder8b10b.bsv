@@ -268,7 +268,7 @@ module mkDecoder (Decoder);
     interface Get value = toGet(value_result);
     method running_disparity = _rd._read;
 
-endmodule : mkDecoder
+endmodule: mkDecoder
 
 typedef enum {
     IdleLow,
@@ -431,6 +431,6 @@ module mkDeserializer #(Idle idle) (Deserializer);
 
     method activity_detected = activity_detected_._read;
     method locked = locked_._read;
-endmodule
+endmodule: mkDeserializer
 
-endpackage : Decoder8b10b
+endpackage: Decoder8b10b
