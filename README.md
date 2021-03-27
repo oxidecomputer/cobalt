@@ -102,5 +102,5 @@ latest/hdl/examples/uart_loopback_test: line 12: /tcllib/bluespec/bluesim.tcl: N
 latest/hdl/examples/uart_loopback_test: line 12: exec: /tcllib/bluespec/bluesim.tcl: cannot execute: No such file or directory
 ```
 
-A: Make sure the bluectl can be found using the ```$PATH``` variables. If the Bluespec compiler was
+A: Make sure the bluetcl can be found using the ```$PATH``` variables. If the Bluespec compiler was
 installed outside the usual system paths, because its ```bin``` direction is present in ```$PATH```.
