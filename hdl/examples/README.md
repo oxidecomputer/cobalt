@@ -39,3 +39,22 @@ $ ./cobble build latest/hdl/examples/uart_loopback_test && latest/hdl/examples/u
 'h55
 'haa
 ```
+
+### Test Pattern Video Source
+
+```test_pattern_video_source``` is a first example using the ```cxxrtl``` backend provided by Yosys,
+which allows writing test benches in C++. This examples implements an HDMI video source generating a
+vertical bar test pattern, with protocol validation written in C++. The test bench will dump
+received frames as PPM images, allowing for visual debug/inspection of the test pattern generator
+and TMDS encoder.
+
+Run the test bench from the Cobble ```build``` direction as follows:
+
+```
+$ ./cobble build latest/hdl/examples/test_pattern_video_source && latest/hdl/examples/test_pattern_video_source
+Frame 1 160x100
+Done
+```
+
+Once complete, open the file ```frame1.ppm``` with an image viewer to see the result. A VCD file is
+generated along side to allow debugging the internals.
