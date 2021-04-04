@@ -26,13 +26,13 @@ CMDS = cobble.env.appending_string_seq_key('yosys_cmds',
         readout = lambda cs: ';'.join(cs))
 BACKEND = cobble.env.overrideable_string_key('yosys_backend',
         help = 'Backend used by Yosys to write the output result.')
-BACKEND_FLAGS = cobble.env.appending_string_seq_key('yosys_backend_flags',
-        help = ('Additional flags passed to the Yosys backend when writing the output.'
-                'Note: this is currently not implemented.'),
-        readout = lambda fs: ' '.join(fs))
 
-KEYS = frozenset([YOSYS, AWK, FLAGS, CMDS, BACKEND, BACKEND_FLAGS])
-_keys = frozenset([YOSYS.name, AWK.name, FLAGS.name, BACKEND.name, BACKEND_FLAGS.name])
+SCRIPT = cobble.env.overrideable_string_key('yosys_script',
+        help = 'Internel key used to pass the path to a script file')
+
+KEYS = frozenset([YOSYS, AWK, FLAGS, CMDS, BACKEND, SCRIPT])
+_script_keys = frozenset([AWK.name, CMDS.name])
+_design_keys = frozenset([YOSYS.name, FLAGS.name, BACKEND.name, SCRIPT.name])
 
 
 @target_def
@@ -42,11 +42,12 @@ def yosys_design(package, name, *,
         sources = [],
         local: Delta = {},
         using: Delta = {}):
-    def mkusing(ctx):
-        out = '%s.%s' % (name, ctx.env[BACKEND.name])
-        _sources = ctx.rewrite_sources(sources)
+    # Free up name
+    _using = using
 
-        read_cmds = _read_sources(_sources)
+    def mkusing(ctx):
+        rewritten_sources = ctx.rewrite_sources(sources)
+        read_cmds = _read_sources(rewritten_sources)
 
         # Yosys commands effectively represent another layer of variables and indirection which
         # needs to be resolved before a script can be written out using a Ninja rule. We want to
@@ -63,24 +64,66 @@ def yosys_design(package, name, *,
 
         # Generate a new environment with commands replaced by their interpolated versions as any
         # required reads.
-        env = ctx.env.subset_require(_keys).without([CMDS.name]).derive({
+        script_env = ctx.env.subset_require(_script_keys).without([CMDS.name]).derive({
             CMDS.name: read_cmds + cmds,
         })
 
-        script_path = package.outpath(env, out + '.ys')
+        script_path = package.outpath(script_env, name + '.ys')
         script = cobble.target.Product(
-            env = env,
+            env = script_env,
             outputs = [script_path],
-            rule = 'yosys_script')
+            rule = 'yosys_generate_script')
 
-        design_path = package.outpath(env, out)
+        # With a Yosys script in hand, determine the resulting product.
+
+        env = ctx.env.subset(_design_keys).derive({
+            SCRIPT.name: script_path,
+        })
+        backend = ctx.env[BACKEND.name]
+        backend_cmd = backend.split()[0]
+        ext = _backend_file_type_map.get(backend_cmd, backend_cmd)
+
+        # The primary output is determined by the backend...
+        outputs = [package.outpath(env, '%s.%s' % (name, ext))]
+
+        # but there may be additional implicit outputs.
+        implicit_outputs = []
+        if backend.startswith('cxxrtl') and '-header' in backend:
+            implicit_outputs.append(package.outpath(env, '%s.h' % name))
+
         design = cobble.target.Product(
             env = env,
-            inputs = _sources,
-            outputs = [design_path],
+            inputs = rewritten_sources,
+            outputs = (outputs, implicit_outputs),
             implicit = [script_path],
-            rule = 'yosys_design')
-        design.expose(path = design_path, name = ctx.env[BACKEND.name])
+            rule = 'yosys_process_design')
+
+        # Expose the outputs.
+        design.expose(name = os.path.basename(outputs[0]), path = outputs[0])
+        for path in design.implicit_outputs:
+            design.expose(name = os.path.basename(path), path = path)
+
+        # Extend the environment if a cxxrtl model was generated so it or its header file can be
+        # included by a dependants.
+        if backend.startswith('cxxrtl'):
+            using = (
+                _using,
+                cobble.env.prepare_delta({
+                    # Add the necessary include paths.
+                    'cxx_flags': [
+                        # Required for the generated .cc file to be able to include its .h file.
+                        '-I%s' % package.project.build_dir,
+                        # Required to have dependants include either the .h or .cc file.
+                        '-I%s/env/%s' % (package.project.build_dir, env.digest),
+                    ],
+                    # Anything using the generated .h or .cc file will want to include them. This
+                    # forces the generation of these files to happen independent of the order in
+                    # which the C files may be compiled.
+                    '__order_only__': outputs + implicit_outputs,
+                }),
+            )
+        else:
+            using = _using
 
         return (using, [script, design])
 
@@ -96,6 +139,9 @@ _read_cmd_file_type_map = {
     '.v': ['read_verilog'],
     '.sv': ['read_verilog', '-sv'],
 }
+_backend_file_type_map = {
+    'cxxrtl': 'cc',
+}
 
 def _read_sources(sources):
     read_cmds = []
@@ -107,14 +153,14 @@ def _read_sources(sources):
 
 
 ninja_rules = {
-    'yosys_script': {
+    'yosys_generate_script': {
         'command': '$yosys_awk \'$$1=$$1\' RS=\';\' $out.rsp > $out',
         'description': 'RSP $out',
         'rspfile': '$out.rsp',
         'rspfile_content': '$yosys_cmds',
     },
-    'yosys_design': {
-        'command': '$yosys $yosys_flags -q -L $out.log -s $out.ys -b $yosys_backend -o $out',
-        'description': 'YOSYS $out.ys',
+    'yosys_process_design': {
+        'command': '$yosys $yosys_flags -q -L $out.log -s $yosys_script -b "$yosys_backend" -o $out',
+        'description': 'YOSYS $yosys_script',
     }
 }

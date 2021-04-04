@@ -31,7 +31,7 @@ yosys_design('blinky',
 
 nextpnr_ice40_bitstream('blinky_icestick',
     env = 'icestick',
-    design = ':blinky#json',
+    design = ':blinky#blinky.json',
     deps = [
         ':blinky',
     ])
@@ -51,7 +51,7 @@ yosys_design('uart_loopback',
 
 nextpnr_ice40_bitstream('uart_loopback_icestick',
     env = 'icestick',
-    design = ':uart_loopback#json',
+    design = ':uart_loopback#uart_loopback.json',
     deps = [
         ':uart_loopback',
     ])
