@@ -1,4 +1,5 @@
 [bluespec]
+prefix = "/usr/local"
 bin = "/usr/local/bin/bsc"
 libdir = "/usr/local/lib/bluespec"
 

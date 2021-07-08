@@ -29,20 +29,21 @@ BO_PATHS = cobble.env.frozenset_key('bluespec_object_paths')
 SOURCE_HACK = cobble.env.frozenset_key('bluespec_source_list_hack')
 
 BLUESCAN = cobble.env.overrideable_string_key('bluescan')
+BLUESCAN_FLAGS = cobble.env.appending_string_seq_key('bluescan_flags')
 BLUESCAN_OBJ = cobble.env.overrideable_string_key('bluescan_obj')
 BLUESCAN_MAP = cobble.env.frozenset_key('bluescan_map',
         readout = lambda s: ' '.join(s))
 
 # Cobble looks for this declaration to register keys:
 KEYS = frozenset([BSC, BSC_FLAGS, BSC_BDIR, BO_PATHS,
-    BLUESCAN, BLUESCAN_OBJ, BLUESCAN_MAP, SOURCE_HACK])
+    BLUESCAN, BLUESCAN_FLAGS, BLUESCAN_OBJ, BLUESCAN_MAP, SOURCE_HACK])
 
 # Construct some frozen sets for environment subsetting.
 # Note: we include __implicit__ in the compile environment because compilation
 # references .bo files.
 _compile_keys = frozenset(['__order_only__', '__implicit__', BSC.name,
     BSC_FLAGS.name, BO_PATHS.name])
-_bluescan_keys = frozenset([BLUESCAN.name, BLUESCAN_MAP.name])
+_bluescan_keys = frozenset([BLUESCAN.name, BLUESCAN_FLAGS.name, BLUESCAN_MAP.name])
 
 def _mapping(path):
     """Generates a 'ModName=path/to/ModName.bo' entry from a bo path."""
@@ -398,7 +399,7 @@ ninja_rules = {
         'description': 'BLUESIM $in',
     },
     'bluespec_dep_scan': {
-        'command': '$bluescan --ninja $out --object $bluescan_obj --source $in $bluescan_map',
+        'command': '$bluescan $bluescan_flags --ninja $out --object $bluescan_obj --source $in $bluescan_map',
         'description': 'BLUESCAN $in',
     },
     'bluespec_directory_creation_hack': {
