@@ -29,13 +29,28 @@ If you happen to have cloned the repo without the submodules, you can initialize
 git submodule update --init --recursive
 ```
 
-### Install the Bluespec Compiler
+### Docker Option (pre-configured with Bluespec Compiler and Synthesis Toolchain)
+
+Rather than manually installing the toolchains below, you can build a Docker image using the Dockerfile
+in this repository. From the cobalt checkout directory, build the Docker image using the command:
+`docker build .`
+
+The docker image has the bluespec tools installed in `/opt/bluespec/` and the synthesis tools installed
+in `/opt/fpga-toolchain`, and both `/opt/bluespec/bin/`  and `/opt/fpga-toolchain/bin/` locations are
+added to the PATH env variable.
+
+### Bare metal Option (install the toolchains yourself)
+#### Install the Bluespec Compiler
 
 The Bluespec compiler is currently only available in source form. Please head over to the [build
 instructions](https://github.com/B-Lang-org/bsc#compiling-bsc-from-source) and install yourself a
 copy.
 
-### Install the Synthesis Toolchain
+You should also install the Bluespec libraries from source. Note that these will require the bsc
+installation above, and expect bsc to be on your path since they use the compiler. Please head
+over to the [build instructions](https://github.com/B-Lang-org/bsc-contrib) and install the libraries.
+
+#### Install the Synthesis Toolchain
 
 The easiest way to get the Yosys/nextpnr synthesis toolchain installed is by heading over to
 [YosysHQ](https://github.com/YosysHQ/fpga-toolchain) and downloading a build for your favorite OS.
@@ -43,10 +58,15 @@ Alternatively, the [Yosys](https://github.com/YosysHQ/yosys) and
 [nextpnr](https://github.com/YosysHQ/nextpnr) repos have build instructions if you'd rather build
 from source.
 
-### Additional Dependencies
+#### Additional Dependencies
 
 Finally, Cobble requires a Python 3 (version 3.6+ is probably sufficient, we do not actually know).
 Please install a copy if your system does not already have one.
+
+Cobble also requires the python package 'ninja' so you'll need to 
+```
+pip install ninja
+```
 
 ### Set BUILD.vars
 
@@ -58,6 +78,11 @@ $EDITOR BUILD.vars
 ```
 
 ### Initialize Build Graph, Build Examples
+
+*Note:* If using the docker image, following these instructions is best done
+with the interactive shell and mapping checkouts. Also note that if you're
+on Windows and doing git checkouts on windows, python will be unhappy with
+the windows line endings so you should checkout with `LF` only on the windows side.
 
 And at long last we are ready to initialize the build graph and build one of the examples like so:
 ```
