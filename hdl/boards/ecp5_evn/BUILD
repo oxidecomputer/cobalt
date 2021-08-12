@@ -13,6 +13,7 @@ bluespec_verilog('examples',
     modules = [
         'mkBlinky',
         'mkUARTLoopback',
+        'mkClocks',
     ],
     deps = [
         ':Board',
@@ -56,4 +57,25 @@ nextpnr_ecp5_bitstream('uart_loopback_ecp5_evn',
     design = ':uart_loopback#uart_loopback.json',
     deps = [
         ':uart_loopback',
+    ])
+
+# Clocks/PLL design targets
+
+yosys_design('clocks',
+    top_module = 'mkClocks',
+    sources = [
+        ':examples#mkClocks',
+        '../../interfaces/ECP5PLL.v', # This is a hack, we should improve this.
+        '//vnd/bluespec:Verilog.v#Verilog.v',
+    ],
+    deps = [
+        ':examples',
+        '//vnd/bluespec:Verilog.v',
+    ])
+
+nextpnr_ecp5_bitstream('clocks_ecp5_evn',
+    env = 'ecp5_evn',
+    design = ':clocks#clocks.json',
+    deps = [
+        ':clocks',
     ])
