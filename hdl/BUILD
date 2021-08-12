@@ -19,6 +19,11 @@ bluespec_library('Encoding8b10b',
         ':TestUtils',
     ])
 
+bluespec_library('PLL',
+    sources = [
+        'PLL.bsv'
+    ])
+
 bluespec_library('Strobe',
     sources = [
         'Strobe.bsv'

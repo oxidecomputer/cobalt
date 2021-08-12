@@ -3,7 +3,14 @@
 bluespec_library('ECP5',
     sources = [
         'ECP5.bsv',
+    ],
+    deps = [
+        '//hdl:PLL',
     ])
+
+#
+# UART package and unit tests.
+#
 
 bluespec_library('UART',
     sources = [
