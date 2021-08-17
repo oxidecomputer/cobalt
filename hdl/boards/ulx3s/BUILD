@@ -57,3 +57,36 @@ nextpnr_ecp5_bitstream('uart_loopback_ulx3s',
     deps = [
         ':uart_loopback',
     ])
+
+# UInt16 Sampler design targets
+
+bluespec_verilog('UInt16Sampler',
+    top = 'UInt16Sampler.bsv',
+    modules = [
+        'mkUInt16Sampler',
+    ],
+    deps = [
+        ':Board',
+        '//hdl:InitialReset',
+        '//hdl/interfaces:UART',
+        '//hdl/test:UInt16SamplingMemory',
+    ])
+
+yosys_design('uint16_sampler',
+    top_module = 'mkUInt16Sampler',
+    sources = [
+        ':UInt16Sampler#mkUInt16Sampler',
+        '//vnd/bluespec:Verilog.v#Verilog.v',
+        '../../InitialReset.v',
+    ],
+    deps = [
+        ':UInt16Sampler',
+        '//vnd/bluespec:Verilog.v',
+    ])
+
+nextpnr_ecp5_bitstream('uint16_sampler_ulx3s',
+    env = 'ulx3s',
+    design = ':uint16_sampler#uint16_sampler.json',
+    deps = [
+        ':uint16_sampler',
+    ])

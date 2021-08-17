@@ -48,6 +48,11 @@ bluespec_library('InitialReset',
         ':TestUtils',
     ])
 
+bluespec_library('LogicSampler',
+    sources = [
+        'LogicSampler.bsv'
+    ])
+
 bluespec_library('PLL',
     sources = [
         'PLL.bsv'

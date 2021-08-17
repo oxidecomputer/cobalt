@@ -20,3 +20,24 @@ bluesim_tests('Encoding8b10bTests',
         '//hdl:Encoding8b10b',
         '//hdl:TestUtils',
     ])
+
+bluespec_library('UInt16SamplingMemory',
+    sources = [
+        'LogicSamplerTests.bsv',
+    ],
+    deps = [
+        '//hdl:LogicSampler',
+        '//hdl:TestUtils',
+    ])
+
+bluesim_tests('LogicSamplerTests',
+    env = 'bluesim_default',
+    suite = 'LogicSamplerTests.bsv',
+    modules = [
+        'mkLogicSamplingMemoryTest',
+        'mkByteProtocolFrontendTest',
+    ],
+    deps = [
+        '//hdl:LogicSampler',
+        '//hdl:TestUtils',
+    ])
