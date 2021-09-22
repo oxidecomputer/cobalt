@@ -2,7 +2,6 @@
 
 VERILOG_DIR = VARS.get('bluespec', 'libdir', default = '/usr/local/lib/bluespec')
 VERILOG_FILES = [
-    'ASSIGN1.v',
     'BRAM1.v',
     'BRAM1BE.v',
     # TODO (arjen): Yosys tries to memreadh from an empty define, determine how to work around this.
@@ -20,7 +19,6 @@ VERILOG_FILES = [
     'CRegN5.v',
     'CRegUN5.v',
     'ClockDiv.v',
-    'ClockGater.v',
     'ClockGen.v',
     'ClockInverter.v',
     'ClockMux.v',
