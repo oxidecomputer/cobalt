@@ -45,11 +45,13 @@ import "BVI" SB_IO =
     module vMkSB_IO #(
             Bit#(6) pin_type,
             String io_standard,
-            Bool pull_up) (SB_IO#(one_bit_type))
+            Bool pull_up,
+            Bool negative_trigger) (SB_IO#(one_bit_type))
                 provisos (Bits#(one_bit_type, 1));
         parameter PIN_TYPE = pin_type;
         parameter IO_STANDARD = io_standard;
         parameter PULLUP = pull_up;
+        parameter NEG_TRIGGER = negative_trigger;
 
         // The primitive can be clocked by two different clocks yet the gate is a single signal.
         // This is annoying, because the gate signal should be an OR of the gates of the two clocks,
@@ -70,8 +72,8 @@ import "BVI" SB_IO =
         method d (D_OUT_0, D_OUT_1) enable(OUTPUT_ENABLE) clocked_by(read_clk);
 
         schedule (q0, q1) CF (q0, q1);
-        schedule (d) CF (d);
-        schedule (d) C (q0, q1);
+        schedule (d) C (d);         // Write once per cycle.
+        schedule (d) C (q0, q1);    // Read or write in a given cycle, not both.
     endmodule
 
 //
@@ -134,7 +136,7 @@ module mkInput #(InputType input_type, Bool pull_up) (Input#(one_bit_type))
         provisos (
             Bits#(one_bit_type, 1));    // 1-bit type
     let pin_type = {4'b0000, pack(input_type)};
-    SB_IO#(one_bit_type) io <- vMkSB_IO(pin_type, "SB_LVCMOS", pull_up);
+    SB_IO#(one_bit_type) io <- vMkSB_IO(pin_type, "SB_LVCMOS", pull_up, False /* neg trigger */);
 
     interface Inout pad = io.pad;
     method _read = io.q0;
@@ -147,7 +149,8 @@ module mkDifferentialInput #(InputType input_type) (DifferentialInput#(one_bit_t
         provisos (
             Bits#(one_bit_type, 1));    // 1-bit type
     let pin_type = {4'b0000, pack(input_type)};
-    SB_IO#(one_bit_type) p_io <- vMkSB_IO(pin_type, "SB_LVDS_INPUT", False /* pull-up ignored */);
+    SB_IO#(one_bit_type) p_io <-
+        vMkSB_IO(pin_type, "SB_LVDS_INPUT", False /* pull-up ignored */, False /* neg trigger */);
 
     interface DifferentialPairRx pads;
         interface Inout p = p_io.pad;
@@ -163,7 +166,7 @@ module mkOutput #(OutputType output_type) (Output#(one_bit_type))
         provisos (
             Bits#(one_bit_type, 1));    // 1-bit type
     let pin_type = {pack(output_type), 2'b00};
-    SB_IO#(one_bit_type) io <- vMkSB_IO(pin_type, "SB_LVCMOS", False);
+    SB_IO#(one_bit_type) io <- vMkSB_IO(pin_type, "SB_LVCMOS", False, False /* neg trigger */);
 
     interface Inout pad = io.pad;
     method Action _write(one_bit_type val);
@@ -178,8 +181,10 @@ module mkDifferentialOutput #(OutputType output_type) (DifferentialOutput#(one_b
         provisos (
             Bits#(one_bit_type, 1));    // 1-bit type
     let pin_type = {pack(output_type), 2'b00};
-    SB_IO#(one_bit_type) p_io <- vMkSB_IO(pin_type, "SB_LVCMOS", False /* pull-up ignored */);
-    SB_IO#(one_bit_type) n_io <- vMkSB_IO(pin_type, "SB_LVCMOS", False /* pull-up ignored */);
+    SB_IO#(one_bit_type) p_io <-
+        vMkSB_IO(pin_type, "SB_LVCMOS", False /* pull-up ignored */, False /* neg trigger */);
+    SB_IO#(one_bit_type) n_io <-
+        vMkSB_IO(pin_type, "SB_LVCMOS", False /* pull-up ignored */, False /* neg trigger */);
 
     interface DifferentialPairTx pads;
         interface Inout p = p_io.pad;
