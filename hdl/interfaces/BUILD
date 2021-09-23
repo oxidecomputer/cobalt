@@ -8,6 +8,11 @@ bluespec_library('ECP5',
         '//hdl:PLL',
     ])
 
+bluespec_library('ICE40',
+    sources = [
+        'ICE40.bsv',
+    ])
+
 #
 # UART package and unit tests.
 #
