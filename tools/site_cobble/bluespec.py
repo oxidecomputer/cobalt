@@ -380,7 +380,8 @@ def bluesim_binary(package, name, *,
         package = package,
         name = name,
         concrete = True,
-        down = lambda _up_unused: package.project.named_envs[env].derive(extra),
+        down = lambda _up_unused: \
+            package.project.find_environment(env).derive(extra),
         using_and_products = mkusing,
         deps = deps,
     )
