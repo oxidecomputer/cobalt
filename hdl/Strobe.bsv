@@ -34,32 +34,32 @@ endinterface
 module mkStrobe #(Integer step_, UInt#(sz) init) (Strobe#(sz))
         provisos (Add#(sz, 1, sz_overflow));
     Reg#(UInt#(sz)) count <- mkRegA(init);
-    Reg#(Bool) _pulse <- mkRegA(False);
+    Reg#(Bool) q <- mkRegA(False);
 
-    RWire#(UInt#(sz)) set <- mkRWire();
-    Wire#(Bool) pulse_next <- mkDWire(False);
+    RWire#(UInt#(sz)) count_next <- mkRWire();
+    Wire#(Bool) q_next <- mkDWire(False);
     PulseWire tick <- mkPulseWire();
 
     (* no_implicit_conditions, fire_when_enabled *)
-    rule do_set (set.wget matches tagged Valid .value);
+    rule do_set_count (count_next.wget matches tagged Valid .value);
         count <= value;
     endrule
 
     (* no_implicit_conditions, fire_when_enabled *)
-    rule do_tick (tick && !isValid(set.wget()));
+    rule do_tick (tick && !isValid(count_next.wget()));
         UInt#(sz_overflow) sum = extend(count) + fromInteger(step_);
 
         count <= truncate(sum);
-        pulse_next <= unpack(msb(sum));
+        q_next <= unpack(msb(sum));
     endrule
 
     (* no_implicit_conditions, fire_when_enabled *)
     rule do_pulse;
-        _pulse <= pulse_next;
+        q <= q_next;
     endrule
 
-    method _read = _pulse._read;
-    method _write = set.wset;
+    method _read = q._read;
+    method _write = count_next.wset;
     method send = tick.send;
     method step = step_;
 endmodule: mkStrobe

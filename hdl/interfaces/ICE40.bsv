@@ -6,11 +6,32 @@
 
 package ICE40;
 
+import Clocks::*;
+
+
 //
 // The `ICE40` package provides wrappers around various iCE40 primitives. These are currently only
 // tested against recent versions of Yosys/Nextpnr, but should in theory work with the Lattice
 // provided synthesis toolchain.
 //
+
+module mkInitialReset (Reset);
+    Clock clk <- exposeCurrentClock();
+
+    Reg#(Bool) done <- mkRegA(False);
+    MakeResetIfc ifc <- mkReset(2, True, clk);
+
+    (* no_implicit_conditions, fire_when_enabled *)
+    rule do_reset;
+        done <= True;
+
+        if (!done) begin
+            ifc.assertReset();
+        end
+    endrule
+
+    return ifc.new_rst;
+endmodule
 
 //
 // DifferentialPairTx(..) provides an interface to the inout pads of a differential output pin pair.
@@ -27,6 +48,15 @@ endinterface
 //
 interface DifferentialPairRx #(type one_bit_type);
     interface Inout#(one_bit_type) p;
+endinterface
+
+//
+// `DifferentialTranceiver(..)` is used to implement an LVDS transceiver, allowing the pin pads of
+// the diff pair to be connected somewhat conveniently to an appropriate IO primitive.
+//
+interface DifferentialTransceiver #(type one_bit_type);
+    interface DifferentialPairTx#(one_bit_type) tx;
+    interface DifferentialPairRx#(one_bit_type) rx;
 endinterface
 
 //

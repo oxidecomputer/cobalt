@@ -24,6 +24,11 @@ bluespec_library('PLL',
         'PLL.bsv'
     ])
 
+bluespec_library('SchmittReg',
+    sources = [
+        'SchmittReg.bsv'
+    ])
+
 bluespec_library('Strobe',
     sources = [
         'Strobe.bsv'
@@ -36,10 +41,10 @@ bluespec_library('TestUtils',
 
 # Tests
 
-def test_module(name, library, top, module):
+def test_module(name, library, module):
     object_dep = name + '_object'
     bluespec_sim(object_dep,
-        top = top,
+        top = library + '.bsv',
         modules = [
             module,
         ],
@@ -53,4 +58,7 @@ def test_module(name, library, top, module):
             ':' + object_dep,
         ])
 
-test_module('fractional_strobe_test', 'Strobe', 'Strobe.bsv', 'mkFractionalStrobeTest')
+test_module('fractional_strobe_test', 'Strobe', 'mkFractionalStrobeTest')
+
+test_module('fast_edge_schmitt_reg_test', 'SchmittReg', 'mkFastEdgeSchmittRegTest')
+test_module('long_bounce_schmitt_reg_test', 'SchmittReg', 'mkLongBounceSchmittRegTest')
