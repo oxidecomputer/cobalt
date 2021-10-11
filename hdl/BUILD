@@ -24,6 +24,11 @@ bluespec_library('InitialReset',
         'InitialReset.bsv',
     ])
 
+bluespec_library('InputReg',
+    sources = [
+        'InputReg.bsv',
+    ])
+
 bluespec_library('PLL',
     sources = [
         'PLL.bsv'
