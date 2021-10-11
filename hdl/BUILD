@@ -19,6 +19,11 @@ bluespec_library('Encoding8b10b',
         ':TestUtils',
     ])
 
+bluespec_library('InitialReset',
+    sources = [
+        'InitialReset.bsv',
+    ])
+
 bluespec_library('PLL',
     sources = [
         'PLL.bsv'
@@ -58,7 +63,9 @@ def test_module(name, library, module):
             ':' + object_dep,
         ])
 
-test_module('fractional_strobe_test', 'Strobe', 'mkFractionalStrobeTest')
+test_module('initial_reset_test', 'InitialReset', 'mkInitialResetTest')
 
 test_module('fast_edge_schmitt_reg_test', 'SchmittReg', 'mkFastEdgeSchmittRegTest')
 test_module('long_bounce_schmitt_reg_test', 'SchmittReg', 'mkLongBounceSchmittRegTest')
+
+test_module('fractional_strobe_test', 'Strobe', 'mkFractionalStrobeTest')

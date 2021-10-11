@@ -50,7 +50,7 @@ VERILOG_FILES = [
     'GatedClock.v',
     'GatedClockDiv.v',
     'GatedClockInverter.v',
-    'InitialReset.v',
+    #'InitialReset.v',
     # TODO (arjen): Yosys does not parse this, determine how to enable or replace.
     #'InoutConnect.v',
     'LatchCrossingReg.v',
