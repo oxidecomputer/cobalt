@@ -1,7 +1,7 @@
 [bluespec]
-prefix = "/usr/local"
-bin = "/usr/local/bin/bsc"
-libdir = "/usr/local/lib/bluespec"
+prefix = "/usr/local/bluespec"
+bin = "/usr/local/bluespec/bin/bsc"
+libdir = "/usr/local/bluespec/lib"
 
 [yosys]
 bin = "/usr/local/bin/yosys"
