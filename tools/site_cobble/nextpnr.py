@@ -68,13 +68,19 @@ def _any_bitstream(package, name, *,
         config_env = ctx.env.subset_require(pnr_keys).derive({
             flag_key.name: ["--pre-pack " + s for s in pps],
         })
+        config_path = package.outpath(config_env, name + '.config')
+        log_path = config_path + '.log'
         config = cobble.target.Product(
             env = config_env,
             inputs = ctx.rewrite_sources([design]),
-            outputs = [package.outpath(config_env, name + '.config')],
+            outputs = ([config_path], [log_path]),
             implicit = [ctx.env[CONSTRAINTS.name]] + pps,
             rule = 'place_and_route_' + nextpnr_family_name + '_design',
         )
+        config_report_link = package.linkpath(name + '.timing.txt')
+        config.symlink(
+            target = log_path,
+            source = config_report_link)
 
         # Pack device configuration file into a bitstream.
         bitstream_env = ctx.env.subset_require(pack_keys)
@@ -84,6 +90,7 @@ def _any_bitstream(package, name, *,
             env = bitstream_env,
             inputs = config.outputs,
             outputs = [bitstream_path],
+            implicit = [config_report_link],
             rule = 'pack_' + nextpnr_family_name + '_bitstream',
         )
         bitstream.symlink(
