@@ -177,6 +177,7 @@ def _bluespec_modules(package, name, mod_type, *,
         top,
         modules,
         deps = [],
+        env = None,
         using: Delta = {},
         local: Delta = {}):
     def mkusing(ctx):
@@ -266,8 +267,13 @@ def _bluespec_modules(package, name, mod_type, *,
             dyndep = dyndep_path,
             order_only = vdir_stamp.outputs + dyndep.outputs,
         )
+
+        symlink_modules = not env is None and mod_type == 'verilog'
+
         for name, path in zip(module_outs, module_paths):
             product.expose(path = path, name = name)
+            if symlink_modules:
+                product.symlink(target = path, source = package.linkpath(name + module_ext))
 
         our_using = (
             using,
@@ -278,22 +284,35 @@ def _bluespec_modules(package, name, mod_type, *,
 
         return (our_using, [vdir_stamp, product, dyndep])
 
-    return cobble.target.Target(
-        package = package,
-        name = name,
-        using_and_products = mkusing,
-        deps = deps,
-        local = local,
-    )
+    if env is None:
+        return cobble.target.Target(
+            package = package,
+            name = name,
+            using_and_products = mkusing,
+            deps = deps,
+            local = local,
+        )
+    else:
+        return cobble.target.Target(
+            package = package,
+            name = name,
+            concrete = True,
+            down = lambda _up_unused: \
+                package.project.find_environment(env).derive(local),
+            using_and_products = mkusing,
+            deps = deps,
+        )
 
 @target_def
 def bluespec_verilog(package, name, *,
         top,
         modules,
         deps = [],
+        env = None,
         using: Delta = {},
         local: Delta = {}):
     return _bluespec_modules(package, name, 'verilog',
+        env = env,
         top = top,
         modules = modules,
         deps = deps,
