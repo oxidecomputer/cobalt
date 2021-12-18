@@ -85,6 +85,25 @@ instance Connectable#(Strobe#(a), Strobe#(b));
     endmodule
 endinstance
 
+// Make Strobes and Pulsewires connectable.
+instance Connectable#(Strobe#(a), PulseWire);
+    module mkConnection #(Strobe#(a) s, PulseWire w) (Empty);
+        (* fire_when_enabled *)
+        rule do_tick (s);
+            w.send();
+        endrule
+    endmodule
+endinstance
+
+instance Connectable#(PulseWire, Strobe#(a));
+    module mkConnection #(PulseWire w, Strobe#(a) s) (Empty);
+        (* fire_when_enabled *)
+        rule do_tick (w);
+            s.send();
+        endrule
+    endmodule
+endinstance
+
 (* synthesize *)
 module mkFractionalStrobeTest (Empty);
     Strobe#(16) s <- mkFractionalStrobe(1000 / 96, 0); // expect a pulse every ~11th cycle.
