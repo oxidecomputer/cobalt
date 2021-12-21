@@ -24,11 +24,6 @@ bluespec_library('InitialReset',
         'InitialReset.bsv',
     ])
 
-bluespec_library('InputReg',
-    sources = [
-        'InputReg.bsv',
-    ])
-
 bluespec_library('PLL',
     sources = [
         'PLL.bsv'
@@ -42,6 +37,11 @@ bluespec_library('SchmittReg',
 bluespec_library('Strobe',
     sources = [
         'Strobe.bsv'
+    ])
+
+bluespec_library('SyncBits',
+    sources = [
+        'SyncBits.bsv',
     ])
 
 bluespec_library('TestUtils',
