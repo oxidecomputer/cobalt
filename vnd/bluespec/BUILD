@@ -1,6 +1,6 @@
 # -*- python -*- vim:syntax=python:
 
-VERILOG_DIR = VARS.get('bluespec', 'libdir', default = '/usr/local/lib/bluespec')
+VERILOG_DIR = VARS.get('bluespec', 'libdir', default = '/usr/local/bluespec/lib')
 VERILOG_FILES = [
     'BRAM1.v',
     'BRAM1BE.v',
