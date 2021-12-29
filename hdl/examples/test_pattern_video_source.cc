@@ -157,7 +157,10 @@ int main()
     {
       if (src.frames() > 0)
       {
-        auto file_name = (std::stringstream{} << "frame" << src.frames() << ".ppm").str();
+        auto file_name_os = std::ostringstream{};
+        file_name_os << "frame" << src.frames() << ".ppm";
+
+        auto file_name = file_name_os.str();
         src.save_frame_buffer(file_name);
       }
 
