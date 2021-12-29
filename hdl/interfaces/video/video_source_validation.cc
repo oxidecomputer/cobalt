@@ -6,6 +6,8 @@
 
 #include "video_source_validation.h"
 
+#include <bitset>
+#include <cassert>
 #include <fstream>
 #include <iostream>
 
@@ -67,7 +69,7 @@ constexpr std::optional<uint> VideoSourceValidation::try_decode_as_terc4(uint c)
   }
 }
 
-constexpr uint VideoSourceValidation::decode_data(uint c)
+uint VideoSourceValidation::decode_data(uint c)
 {
   assert(c < 0x400);
 
@@ -113,6 +115,8 @@ constexpr uint VideoSourceValidation::decode_data(uint c)
 constexpr bool VideoSourceValidation::is_video_preamble(uint ch0, uint ch1, uint ch2)
 {
   // ch0 is ignored since it encodes h_sync/v_sync.
+  (void)ch0;
+
   return ch1 == 0b01 && ch2 == 0b00;
 }
 
