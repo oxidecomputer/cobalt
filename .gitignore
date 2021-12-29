@@ -2,3 +2,5 @@
 BUILD.vars
 /build
 __pycache__
+
+devcontainer.json
