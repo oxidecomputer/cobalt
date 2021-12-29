@@ -13,7 +13,7 @@ ARG BSC_SHA=61dc0ebbbea3a853d061556ae8828dc16e687e40
 ARG BSC_CONTRIB_URL=https://github.com/B-Lang-org/bsc-contrib.git
 ARG BSC_CONTRIB_SHA=d2b17aab4f2eacb79816624017961144de6e231f
 
-ARG OSS_CAD_RELEASE_URL=https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2021-11-13/oss-cad-suite-linux-ARCH-20211113.tgz
+ARG OSS_CAD_RELEASE_URL=https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2021-12-28/oss-cad-suite-linux-ARCH-20211228.tgz
 
 # Create a non-root user, owning /home
 RUN groupadd --gid $GID $USERNAME && \
@@ -45,7 +45,7 @@ RUN apt-get update && \
         flex \
         bison \
         pkg-config \
-        # Cobble deps, Python 3 comes with the OSS CAD suite below. 
+        # Cobble deps, Python 3 comes with the OSS CAD suite below.
         ninja-build \
     && rm -rf /var/lib/apt/lists/*
 
@@ -58,14 +58,14 @@ RUN DPKG_ARCH="$(/usr/bin/dpkg --print-architecture)" && \
         arm64) ARCH='arm64';; \
         *) echo "Unsupported Architecture"; exit 1 ;; \
     esac && \
-    
+
     # Push OSS_CAD_RELEASE_URL contents into Bash context.
     URL=$OSS_CAD_RELEASE_URL && \
 
     # Fetch and install tarball.
     wget --progress=bar:force:noscroll ${URL//ARCH/${ARCH}} -O /tmp/oss-cad-suite.tgz && \
     tar -xf /tmp/oss-cad-suite.tgz --strip-components=1 -C $INSTALL_PREFIX && \
-    
+
     # Clean up.
     rm -f /tmp/oss-cad-suite.tgz
 
@@ -76,10 +76,10 @@ ENV PATH="${PATH}:$INSTALL_PREFIX/py3bin:$INSTALL_PREFIX/bluespec/bin"
 RUN git clone --recursive $BSC_URL /tmp/bsc && cd /tmp/bsc && \
     git checkout $BSC_SHA && git submodule update -f && \
     # Build, install and clean up.
-    
+
     # Unfortunately the Bluespec build infrastructure conflates its own library
     # resources and the Bluespec and Verilog standard libraries for design
-    # builds, so use a seperate prefix rather than mixing with OSS CAD suite.  
+    # builds, so use a seperate prefix rather than mixing with OSS CAD suite.
     make PREFIX=$INSTALL_PREFIX/bluespec install-src && \
     rm -rf /tmp/bsc
 
