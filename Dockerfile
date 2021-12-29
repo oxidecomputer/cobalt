@@ -29,6 +29,8 @@ RUN apt-get update && \
     apt-get upgrade -y && \
     DEBIAN_FRONTEND=noninteractive \
     apt-get -y install \
+        locales \
+        g++-10 \
         sudo \
         wget \
         # Bluespec compiler requirements as documented in
@@ -47,7 +49,9 @@ RUN apt-get update && \
         pkg-config \
         # Cobble deps, Python 3 comes with the OSS CAD suite below.
         ninja-build \
-    && rm -rf /var/lib/apt/lists/*
+        && \
+    rm -rf /var/lib/apt/lists/* && \
+    locale-gen "en_US.UTF-8"
 
 # Use Bash so string substitution is available.
 SHELL ["/bin/bash", "-c"]
