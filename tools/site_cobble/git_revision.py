@@ -32,6 +32,15 @@ parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter
 )
 parser.add_argument(
+    "-c",
+    "--context",
+    dest="context",
+    default=None,
+    help=(
+        "Use this path instead of cwd"
+    ),
+)
+parser.add_argument(
     "-b",
     "--baseBranch",
     dest="base_branch",
@@ -419,9 +428,10 @@ class GitVersioner:
 
 
 def main():
+    repo_path = pathlib.Path.cwd() if options.context is None else options.context
     config = GitVersionerConfig(
         options.base_branch,
-        repo_path=pathlib.Path.cwd(),
+        repo_path=repo_path,
         year_factor=options.year_factor,
         stop_debounce=options.stop_debounce,
         name=options.name,
@@ -454,6 +464,7 @@ def full_print(version):
     print(f"featureOrigin: {version.feature_branch_origin.sha}")
     print(f"yearFactor: {version.config.year_factor}")
     print(f"localChanges: {version.local_changes}")
+    print(f"working_dir: {version.config.repo_path}")
 
 
 if __name__ == "__main__":
