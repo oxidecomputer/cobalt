@@ -1,7 +1,7 @@
 # Cobalt
 
 Hi there, welcome to Cobalt. Cobalt is a collection of [Bluespec](https://github.com/B-Lang-org/bsc)
-interfaces and modules, used by [Oxide Computer](https://github.com/oxidecomputer) to implement
+interfaces and modules, and tooling used by [Oxide Computer](https://github.com/oxidecomputer) to implement
 custom logic for its [new computer](https://www.youtube.com/watch?v=vvZA9n3e5pc). Since we developed
 some of these pieces on readily
 [available](https://www.latticesemi.com/products/developmentboardsandkits/ecp5evaluationboard)
@@ -35,9 +35,8 @@ Rather than manually installing the toolchains below, you can build a Docker ima
 in this repository. From the cobalt checkout directory, build the Docker image using the command:
 `docker build .`
 
-The docker image has the bluespec tools installed in `/opt/bluespec/` and the synthesis tools installed
-in `/opt/fpga-toolchain`, and both `/opt/bluespec/bin/`  and `/opt/fpga-toolchain/bin/` locations are
-added to the PATH env variable.
+The docker image has the bluespec tools installed in `/usr/local/bluespec/` and the synthesis tools installed
+in `/usr/local/bin`.
 
 ### Bare metal Option (install the toolchains yourself)
 #### Install the Bluespec Compiler
@@ -71,7 +70,8 @@ pip install ninja
 ### Set BUILD.vars
 
 In order to point Cobble at the right toolchain pieces, copy ```BUILD.vars.example``` and edit the
-paths in this file to match your installed toolchain:
+paths in this file to match your installed toolchain (no changes are necessary if using the docker image described
+above):
 ```
 cp BUILD.vars.example BUILD.vars
 $EDITOR BUILD.vars
@@ -87,7 +87,7 @@ the windows line endings so you should checkout with `LF` only on the windows si
 And at long last we are ready to initialize the build graph and build one of the examples like so:
 ```
 mkdir build; cd build
-../vnd/cobble/cobble init ..
+../vnd/cobble/cobble init .. --reinit
 ```
 
 To build and run one of the test benches:
@@ -117,6 +117,14 @@ Finally, to build all possible targets simply run:
 If you are wondering where to go from here, we suggest heading over to the [examples](hdl/examples)
 directory or building and trying one of the bitstreams for the other supported [boards](hdl/boards).
 Happy hacking!
+
+### Additional cobble options
+
+To see a list of all available targets, run:
+```
+./cobble list
+```
+
 
 ## FAQ
 
