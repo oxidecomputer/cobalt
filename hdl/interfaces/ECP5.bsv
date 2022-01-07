@@ -14,6 +14,7 @@ package ECP5;
 
 export GSR(..), mkGSR;
 export ECP5PLLParameters(..), ECP5PLL(..), mkECP5PLL, mkPLL;
+export USRMCLK(..), mkUSRMCLK;
 
 import DefaultValue::*;
 import Vector::*;
@@ -206,5 +207,23 @@ module mkPLL #(ECP5PLLParameters parameters, Clock clk_in, Reset rst) (PLL#(n_ou
 
     method locked = !_pll.not_lock;
 endmodule
+
+// The USRMCLK(..) interface is a wrapper for the ECP5's USRMCLK primitive, which is
+// what controls the configuration SPI SCLK pin. Once the device enters user mode,
+// usr_mclk_in can be used to drive a user defined clock out of the pin. Additionally,
+// usr_mclk_ts can be driven to tri-state the pin.
+// Details can be found in Lattice TN1260 ECP5 and ECP5-5G sysCONFIG Usage Guide in
+// the Master SPI section.
+
+interface USRMCLK;
+    method Action usr_mclk_in((* port = "usr_mclk_in" *) Bit#(1) val);
+    method Action usr_mclk_ts((* port = "usr_mclk_ts" *) Bit#(1) val);
+endinterface
+
+import "BVI" USRMCLK =
+    module mkUSRMCLK (USRMCLK);
+        method usr_mclk_in (USRMCLKI) enable((* inhigh *) EN0);
+        method usr_mclk_ts (USRMCLKTS) enable((* inhigh *) EN1);
+    endmodule
 
 endpackage: ECP5
