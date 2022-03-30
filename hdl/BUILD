@@ -75,5 +75,8 @@ bluesim_tests('StrobeTests',
     env = 'bluesim_default',
     suite = 'Strobe.bsv',
     modules = [
+        'mkPowerTwoStrobeTest',
+        'mkPowerTwoStrobeAsCountDownTest',
         'mkFractionalStrobeTest',
+        'mkLimitStrobeStrobeTest',
     ])
