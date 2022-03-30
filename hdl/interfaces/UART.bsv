@@ -293,10 +293,10 @@ module mkSamplingTransceiver
     staticAssert(valueof(bit_period) > 1, "bit_period should be at least two clock cycles");
 
     Serializer ser <- mkSerializer();
-    Strobe#(bit_period_sz) tx_strobe_ <- mkStrobe(1, 0);
+    Strobe#(bit_period_sz) tx_strobe_ <- mkPowerTwoStrobe(1, 0);
 
     Deserializer des <- mkDeserializer();
-    Strobe#(bit_period_sz) rx_strobe <- mkStrobe(1, 0);
+    Strobe#(bit_period_sz) rx_strobe <- mkPowerTwoStrobe(1, 0);
     AsyncBitSampler#(bit_period) rx_sampler <- mkAsyncBitSampler(rx_strobe, NegativePolarity);
 
     mkConnection(rx_sampler, des);
