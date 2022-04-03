@@ -405,6 +405,32 @@ def bluesim_binary(package, name, *,
         deps = deps,
     )
 
+@global_fn
+def bluesim_tests(name, *,
+        env,
+        suite,
+        modules = [],
+        deps = [],
+        local: Delta = {},
+        extra: Delta = {}):
+    # Add a simulation target and bluesim_binary targets to the build graph.
+    bluespec_sim(name,
+        top = suite,
+        modules = modules,
+        deps = deps,
+        local = local)
+    for test in modules:
+        test_name = '{}_{}'.format(name, test)
+
+        bluesim_binary(test_name,
+            env = env,
+            top = ':{}#{}'.format(name, test),
+            deps = [
+                ':' + name,
+            ],
+            local = local,
+            extra = extra)
+
 ninja_rules = {
     'compile_bluespec_obj': {
         'command': '$bsc $bsc_flags -bdir $bsc_bdir $in',
