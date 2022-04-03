@@ -27,26 +27,13 @@ bluespec_library('UART',
         '//hdl:TestUtils',
     ])
 
-bluespec_sim('uart_tests',
-    top = 'UART.bsv',
+bluesim_tests('UARTTests',
+    env = 'bluesim_default',
+    suite = 'UART.bsv',
     modules = [
         'mkSerializerTest',
         'mkSerDesTest',
     ],
     deps = [
-        ':UART'
-    ])
-
-bluesim_binary('uart_serializer_test',
-    env = 'bluesim_default',
-    top = ':uart_tests#mkSerializerTest',
-    deps = [
-        ':uart_tests',
-    ])
-
-bluesim_binary('uart_serdes_test',
-    env = 'bluesim_default',
-    top = ':uart_tests#mkSerDesTest',
-    deps = [
-        ':uart_tests',
+        ':UART',
     ])
