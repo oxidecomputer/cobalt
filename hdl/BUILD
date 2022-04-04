@@ -22,6 +22,8 @@ bluespec_library('Encoding8b10b',
 bluespec_library('InitialReset',
     sources = [
         'InitialReset.bsv',
+    ], deps = [
+        ':TestUtils',
     ])
 
 bluespec_library('PLL',
@@ -56,6 +58,9 @@ bluesim_tests('InitialResetTests',
     suite = 'InitialReset.bsv',
     modules = [
         'mkInitialResetTest',
+    ],
+    deps = [
+        ':InitialReset',
     ])
 
 bluesim_tests('SchmittRegTests',

@@ -9,6 +9,9 @@ package InitialReset;
 export mkInitialReset;
 
 import Clocks::*;
+import StmtFSM::*;
+
+import TestUtils::*;
 
 
 import "BVI" InitialReset =
@@ -27,10 +30,17 @@ module mkInitialReset #(Integer cycles) (Reset);
     return _ifc.gen_rst;
 endmodule
 
-(* synthesize, no_default_reset *)
+(* synthesize *)
 module mkInitialResetTest (Empty);
     Reset initial_reset <- mkInitialReset(2);
     Reg#(Bool) r <- mkReg(True, reset_by initial_reset);
+
+    mkAutoFSM(seq
+        await(r);
+    endseq,
+    reset_by initial_reset);
+
+    mkTestWatchdog(5);
 endmodule
 
 endpackage
