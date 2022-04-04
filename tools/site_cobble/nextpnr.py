@@ -77,6 +77,7 @@ def _any_bitstream(package, name, *,
             implicit = [ctx.env[CONSTRAINTS.name]] + pps,
             rule = 'place_and_route_' + nextpnr_family_name + '_design',
         )
+        config.expose(path = log_path, name = 'report')
         config_report_link = package.linkpath(name + '.report.txt')
         config.symlink(
             target = log_path,
