@@ -1,4 +1,3 @@
 [submodule "vnd/cobble"]
 	path = vnd/cobble
 	url = git@github.com:oxidecomputer/cobble-build.git
-	branch = subproject
