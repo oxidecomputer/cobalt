@@ -4,12 +4,18 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-import re
+import argparse
+import curses
 import os.path
-from itertools import chain
+import re
+import subprocess
+import sys
+from itertools import chain, groupby
 
 import cobble.env
+import cobble.cmd
 from cobble.plugin import *
+from cobble.target import concrete_products, print_evaluation_error
 
 
 # Define our Bluespec-specific environment keys and their behavior.
@@ -430,6 +436,182 @@ def bluesim_tests(name, *,
             ],
             local = local,
             extra = extra)
+
+def _split_ident(s):
+    """Split a given ident of the format package:target#output into those
+    three parts.
+    """
+    package, target_and_output = s.split(':')
+    target, output = target_and_output.split('#')
+    return (package, target, output)
+
+@cmd
+def bluesim_test(subparsers):
+    """The Bluesim test runner builds targets which look like Bluesim binaries
+    and runs them as if unit tests, reporting pass/fail as it goes.
+    """
+
+    def cmd(project, args):
+        # Allow for some more relaxed queries by appending the output name if it
+        # is missing.
+        if not args.query.endswith('#script'):
+            query = re.compile(args.query + '#script')
+        else:
+            query = re.compile(args.query)
+
+        try:
+            outputs = cobble.cmd.query_products_and_build(
+                project,
+                query,
+                jobs=getattr(args, 'jobs', None),
+                loadavg=getattr(args, 'loadavg', None),
+                verbose=args.verbose)
+
+            if len(outputs) == 0:
+                return 1
+        except cobble.target.EvaluationError as e:
+            cobble.target.print_evaluation_error(e)
+            return 1
+        except subprocess.CalledProcessError:
+            return 1
+
+        # The outputs have been built. Lets attempt to group them in one or more
+        # tests suites based on their idents.
+        grouped_outputs = {}
+        for ident, path in outputs:
+            package, target, output_name = _split_ident(ident)
+
+            if '_' in target:
+                suite, module = target.split('_', maxsplit = 1)
+            else:
+                suite, module = ('', target)
+
+            if not package in grouped_outputs:
+                grouped_outputs[package] = {}
+            if not suite in grouped_outputs[package]:
+                grouped_outputs[package][suite] = {}
+            if not module in grouped_outputs[package][suite]:
+                grouped_outputs[package][suite][module] = []
+
+            grouped_outputs[package][suite][module].append((output_name, path))
+
+        # Flatten the output structure above into sorted (package, suite,
+        # module, path) tuples.
+        tests = []
+        for package, suites in sorted(grouped_outputs.items()):
+            for suite, modules in sorted(suites.items()):
+                for module, outputs in sorted(modules.items()):
+                    for name, path in outputs:
+                        test_name = \
+                            module if len(outputs) == 1 else f"{module}#{name}"
+                        tests.append((package, suite, test_name, path))
+
+        tests_total = len(tests)
+        tests_passed = 0
+        tests_failed = 0
+
+        # Run the given test, print some (hopefully) useful info as it goes and
+        # report the pass/fail outcome.
+        def run_test(test, print_prefix, verbose):
+            nonlocal tests_passed
+            nonlocal tests_failed
+
+            print(f"{print_prefix}... ", end='')
+            sys.stdout.flush()
+
+            proc = subprocess.Popen(
+                test,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                encoding='utf-8')
+            output, _ = proc.communicate()
+
+            # Determine the test result from the shell exit code and test
+            # output.
+            failed = (proc.returncode != 0)
+
+            # Bluesim does not change its exit code if an assert fails, so scan
+            # the output for failures.
+            output = output.splitlines()
+            for line in output:
+                if line.startswith('Dynamic assertion failed'): failed = True
+
+            if failed:
+                tests_failed += 1
+            else:
+                tests_passed += 1
+
+            # Print the test result.
+            print(red_str('FAIL') if failed else green_str('PASS'))
+            if failed or verbose:
+                for line in output:
+                    print('        ' + line)
+
+        # Run the tests and record the results, grouping tests by their
+        # package:suite string.
+        key = lambda t: f"{t[0]}:{t[1]}"
+        for suite_key, tests in groupby(tests, key=key):
+            # Tests is an iterator but we need to know how many there are in a
+            # suite. Pull them into a list so they can be counted.
+            tests = list(tests)
+
+            for i, (package, suite, test, path) in enumerate(tests):
+                if len(tests) == 1 and len(suite) == 0:
+                    # Print the whole package:module string if there is only a
+                    # single test and there does not appear to be a test suite.
+                    run_test(path, f"{package}:{test}", args.verbose)
+                else:
+                    if i == 0:
+                        print(suite_key)
+                    run_test(path, f"    {test}", args.verbose)
+
+        print()
+        print("Total/Passed/Failed: {}/{}/{}".format(
+            tests_total,
+            green_or_red_str(tests_passed == tests_total, tests_passed),
+            green_or_red_str(tests_failed == 0, tests_failed)))
+
+        return (0 if tests_failed == 0 else 2)
+
+    try:
+        import colorama
+
+        colorama.init()
+
+        def red_str(s):
+            return f"{colorama.Fore.RED}{s}{colorama.Style.RESET_ALL}"
+        def green_str(s):
+            return f"{colorama.Fore.GREEN}{s}{colorama.Style.RESET_ALL}"
+    except ImportError:
+        def red_str(s): return s
+        def green_str(s): return s
+
+    def green_or_red_str(pred, s):
+        return green_str(s) if pred else red_str(s)
+
+    parser = subparsers.add_parser('bluesim_test',
+            help = 'build and run Bluesim tests')
+    parser.add_argument('-j',
+            help = 'run N build jobs in parallel',
+            type = int,
+            metavar = 'N',
+            dest = 'jobs')
+    parser.add_argument('-l',
+            help = "don't start new build jobs if loadavg > N",
+            type = float,
+            metavar = 'N',
+            dest = 'loadavg')
+    parser.add_argument('-v',
+            help = "verbose output: print output while building and running",
+            action = 'store_true',
+            dest = 'verbose')
+    parser.add_argument('query',
+            help = "Query of products to build and test")
+    parser.set_defaults(go = cmd)
+
+    return parser
+
 
 ninja_rules = {
     'compile_bluespec_obj': {
