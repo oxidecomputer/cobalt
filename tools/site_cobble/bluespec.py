@@ -4,12 +4,21 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-import re
+import argparse
+import curses
 import os.path
-from itertools import chain
+import re
+import subprocess
+import sys
+
+from datetime import datetime
+from enum import Enum
+from itertools import chain, groupby
 
 import cobble.env
+import cobble.cmd
 from cobble.plugin import *
+from cobble.target import concrete_products, print_evaluation_error
 
 
 # Define our Bluespec-specific environment keys and their behavior.
@@ -430,6 +439,395 @@ def bluesim_tests(name, *,
             ],
             local = local,
             extra = extra)
+
+def _split_ident(s):
+    """Split a given ident of the format package:target#output into those
+    three parts.
+    """
+    package, target_and_output = s.split(':')
+    target, output = target_and_output.split('#')
+    return (package, target, output)
+
+@cmd
+def bluesim_test(subparsers):
+    """The Bluesim test runner builds targets which look like Bluesim binaries
+    and runs them as if unit tests, reporting pass/fail as it goes.
+    """
+
+    # Determine if Colorama is available for import and set up some helpers if
+    # it is.
+    try:
+        from colorama import init, ansi, Fore, Back, Style, Cursor
+
+        init()
+
+        def red(s, block=False):
+            if block:
+                return f"{Back.RED}{Fore.BLACK}{s}{Style.RESET_ALL}"
+            else:
+                return f"{Fore.RED}{s}{Style.RESET_ALL}"
+
+        def green(s, block=False):
+            if block:
+                return f"{Back.GREEN}{Fore.BLACK}{s}{Style.RESET_ALL}"
+            else:
+                return f"{Fore.GREEN}{s}{Style.RESET_ALL}"
+
+        def green_or_red(pred, s): return green(s) if pred else red(s)
+        def clear_line(): return ansi.clear_line()
+        def cursor_up(y): return Cursor.UP(y) if y != 0 else ''
+        def cursor_back(x): return Cursor.BACK(x) if x != 0 else ''
+
+        colorama_present = True
+    except ImportError:
+        colorama_present = False
+
+    class Test(object):
+        """Test holds logic and state for running a test executable,
+        determining pass/fail results and reporting status.
+        """
+
+        class Result(Enum):
+            UNKNOWN = 0
+            PASS = 1
+            FAIL = 2
+
+        def __init__(self, name, file_path, vcd_dir):
+            self.name = name
+            self.file_path = file_path
+            self.vcd_dir = vcd_dir
+            self.vcd_recorded = False
+            self.result = self.Result.UNKNOWN
+            self.previous_result = self.Result.UNKNOWN
+            self.output = []
+            self._proc = None
+            self._start = None
+            self._end = None
+            self._cursor_x = 0
+            self._cursor_y = 0
+
+        def init_process(self, record_vcd):
+            """Set up the subprocess to execute the test."""
+            vcd_path = os.path.join(
+                self.vcd_dir,
+                f"{os.path.basename(self.file_path)}.vcd")
+
+            cmd = [self.file_path]
+            if record_vcd: cmd += ['-V', vcd_path]
+
+            self.vcd_recorded = record_vcd
+            self.previous_result = self.result
+            self.result = self.Result.UNKNOWN
+            self._proc = subprocess.Popen(
+                ' '.join(cmd),
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                encoding='utf-8')
+            self._start = None
+            self._end = None
+
+        def should_run(self, vcd_on_fail):
+            # Run if there is no test result.
+            first_run = (self.result == self.Result.UNKNOWN)
+            # Re-run if FAIL and a VCD file should be generated.
+            second_run = (vcd_on_fail and \
+                self.result == self.Result.FAIL and \
+                not self.vcd_recorded)
+
+            return first_run or second_run
+
+        def run(self, interactive=False):
+            assert self._proc.returncode is None, \
+                f"can not run uninitialized test {name}"
+
+            self._start = datetime.now()
+            # Run the process until a timeout is hit, after which the status of
+            # the test is displayed. For non-interactive usecases this value is
+            # larger so as to not spam a possible log too much.
+            while self._proc.returncode is None:
+                try:
+                    timeout = (1 if interactive else 30)
+                    output, _ = self._proc.communicate(timeout=timeout)
+                except subprocess.TimeoutExpired:
+                    self.print_status(is_tty=interactive)
+            self._end = datetime.now()
+
+            self.output = output.splitlines()
+            self._determine_pass_fail()
+
+        def _determine_pass_fail(self):
+            # Determine the test result from the shell exit code and test
+            # output.
+            if self._proc.returncode == 0:
+                self.result = self.Result.PASS
+            else:
+                self.result = self.Result.FAIL
+
+            # Bluesim does not change its exit code if an assert fails, so scan
+            # the output for failures.
+            if not self.result == self.Result.FAIL:
+                for line in self.output:
+                    if line.startswith('Dynamic assertion failed'):
+                        self.result = self.Result.FAIL
+
+        @property
+        def passed(self):
+            return self.result == self.Result.PASS
+
+        @property
+        def failed(self):
+            return self.result == self.Result.FAIL
+
+        def print_status(self, is_tty=False):
+            if is_tty:
+                # Move the cursor to the beginning of the previous line and
+                # clear the line.
+                preamble = \
+                    cursor_back(self._cursor_x) + \
+                    cursor_up(self._cursor_y) + \
+                    clear_line()
+            else:
+                preamble = ''
+
+            # Determine the string values for the result block and stopwatch
+            # given the current state of the test.
+            if self.result == self.Result.UNKNOWN:
+                result = '  ....  '
+                if is_tty and self._start is not None:
+                    stopwatch = str(datetime.now() - self._start)[:-3]
+                else:
+                    stopwatch = '0:00:00.000'
+            elif self.result == self.Result.PASS:
+                result = green('  PASS  ', block=True) if is_tty else 'PASS'
+                stopwatch = str(self._end - self._start)[:-3]
+            elif self.result == self.Result.FAIL:
+                result = red('  FAIL  ', block=True) if is_tty else 'FAIL'
+                stopwatch = str(self._end - self._start)[:-3]
+
+            # Only use the interactive version when running in an ANSI TTY.
+            if is_tty:
+                status = f"{result} ({stopwatch})\t .. {self.name}"
+            else:
+                status = f".. {self.name} {result} ({stopwatch})"
+
+            # Keep track of where the cursor is moving so it can be returned to
+            # the appropriate position on a next call.
+            self._cursor_x = len(status) + 8
+            self._cursor_y = 1
+            print(preamble + status)
+
+
+    def cmd(project, args):
+        # Determine if stdout is an ANSI TTY and print using richer formatting.
+        # Note that this isn't very portable but works well enough for Linux
+        # (and probaly MacOS).
+        is_tty = not args.no_ansi_tty and \
+            (sys.stdin.isatty() and sys.stdout.isatty()) and \
+            colorama_present
+
+        # Allow for some more relaxed queries by attempting to autocomplete the
+        # query.
+        query_str = args.query
+
+        if not args.exact_query:
+            if query_str.endswith('Tests'):
+                query_str += '.*'
+            if not args.query.endswith('#script'):
+                query_str += '#script'
+
+        query = re.compile(query_str)
+
+        try:
+            build_start = datetime.now()
+            results = cobble.cmd.query_products_and_build(
+                project,
+                query,
+                jobs=getattr(args, 'jobs', None),
+                loadavg=getattr(args, 'loadavg', None),
+                verbose=args.verbose)
+            build_end = datetime.now()
+
+            # No outputs were found. There's no point in trying to run anything
+            # so bail.
+            if len(results) == 0:
+                return 1
+        except cobble.target.EvaluationError as e:
+            cobble.target.print_evaluation_error(e)
+            return 1
+        except subprocess.CalledProcessError:
+            return 1
+
+        # Make sure the VCD output dir exists before starting any tests.
+        vcd_dir = os.path.normpath(os.path.join(
+            project.build_dir,
+            args.vcd_dir))
+        if args.vcd_fail or args.vcd_always:
+            os.makedirs(vcd_dir, exist_ok=True)
+
+        # The outputs have been built. Lets attempt to group them in one or more
+        # tests suites based on their idents.
+        grouped_outputs = {}
+        for ident, output in results:
+            package, target, output_name = _split_ident(ident)
+
+            if 'Tests_' in target:
+                suite, module = target.split('_', maxsplit = 1)
+            else:
+                suite, module = ('', target)
+
+            if not package in grouped_outputs:
+                grouped_outputs[package] = {}
+            if not suite in grouped_outputs[package]:
+                grouped_outputs[package][suite] = {}
+            if not module in grouped_outputs[package][suite]:
+                grouped_outputs[package][suite][module] = []
+
+            grouped_outputs[package][suite][module].append(\
+                (output.name, output.file_path))
+
+        # Flatten the output structure above into sorted (package, suite,
+        # module, path) tuples.
+        tests = []
+        for package, suites in sorted(grouped_outputs.items()):
+            for suite, modules in sorted(suites.items()):
+                for module, outputs in sorted(modules.items()):
+                    for name, path in outputs:
+                        test_name = \
+                            module if len(outputs) == 1 else f"{module}#{name}"
+                        tests.append((package, suite, test_name, path))
+
+        tests_total = len(tests)
+        tests_passed = 0
+        tests_failed = 0
+
+        # Run the given test, print some (hopefully) useful info as it goes and
+        # report the pass/fail outcome.
+        def run_test(file_path, name):
+            nonlocal is_tty
+            nonlocal args
+            nonlocal vcd_dir
+            nonlocal tests_passed
+            nonlocal tests_failed
+
+            test = Test(name, file_path, vcd_dir)
+
+            while test.should_run(args.vcd_fail):
+                record_vcd = args.vcd_always or (args.vcd_fail and test.failed)
+                test.init_process(record_vcd)
+                if is_tty: test.print_status(is_tty=True)
+                test.run(interactive=is_tty)
+
+            # Record the test result in the totals.
+            if test.result == Test.Result.PASS:
+                if test.previous_result == Test.Result.FAIL:
+                    # The test failed on the first run but succeeded on the
+                    # second, when generating the VCD. This is a clear
+                    # indication of a non-deterministic test, so warn that this
+                    # happened and report the test as a failure.
+                    tests_failed += 1
+                    printf(
+                        "Test results for %s different after re-run" % test.name,
+                        file=sys.stderr)
+                    sys.stderr.flush()
+                else:
+                    tests_passed += 1
+            elif test.result == Test.Result.FAIL:
+                tests_failed += 1
+
+            # Render the final test result.
+            test.print_status(is_tty=is_tty)
+
+            if (args.verbose or test.failed) and len(test.output) > 0:
+                for line in test.output:
+                    print(' ', line, sep='')
+
+        # Run the tests and record the results, grouping tests by their
+        # package:suite string.
+        tests_start = datetime.now()
+
+        package_and_suite = lambda t: f"{t[0]}:{t[1]}"
+        for suite_name, tests in groupby(tests, key=package_and_suite):
+            # Tests is an iterator but we need to know how many there are in a
+            # suite. Pull them into a list so they can be counted.
+            tests = list(tests)
+
+            for i, (package, suite, test, path) in enumerate(tests):
+                if len(tests) == 1 and len(suite) == 0:
+                    # Print the whole package:module string if there is only a
+                    # single test and the test suite name appears to be zero
+                    # length.
+                    run_test(path, f"{package}:{test}")
+                else:
+                    if i == 0:
+                        print(f"\t\t\t{suite_name}" if is_tty else suite_name)
+                    run_test(path, test)
+
+        tests_end = datetime.now()
+
+        print()
+        print(f"Build Time:\t\t{str(build_end - build_start)[:-3]}")
+        print(f"Test Time:\t\t{str(tests_end - tests_start)[:-3]}")
+        if is_tty:
+            print("Total/Passed/Failed:\t{}/{}/{}".format(
+                tests_total,
+                green_or_red(tests_passed > 0, tests_passed),
+                green_or_red(tests_failed == 0, tests_failed)))
+        else:
+            print('Total/Passed/Failed:\t'
+                f"{tests_total}/{tests_passed}/{tests_failed}")
+
+        return (0 if tests_failed == 0 else 2)
+
+    parser = subparsers.add_parser('bluesim_test',
+            help = 'build and run Bluesim tests')
+    parser.add_argument('-j', '--jobs',
+            help = 'run N build jobs in parallel',
+            type = int,
+            metavar = 'N',
+            dest = 'jobs')
+    parser.add_argument('-l', '--loadavg',
+            help = "don't start new build jobs if loadavg > N",
+            type = float,
+            metavar = 'N',
+            dest = 'loadavg')
+    parser.add_argument('-v', '--verbose',
+            help = 'verbose output: print output while building and running',
+            action = 'store_true',
+            dest = 'verbose')
+    parser.add_argument('--exact-query',
+            help = 'do not use basic heuristics to auto-complete a partial query',
+            action = 'store_true',
+            default = False,
+            dest = 'exact_query')
+    parser.add_argument('--vcd-dir',
+            help = 'write VCD files to DIR',
+            nargs = '?',
+            default = 'vcd',
+            metavar = 'DIR',
+            dest = 'vcd_dir')
+    vcd_args = parser.add_mutually_exclusive_group()
+    vcd_args.add_argument('--vcd-fail',
+            help = 'on test failure, re-run the test and generate a VCD file',
+            action = 'store_true',
+            default = False,
+            dest = 'vcd_fail')
+    vcd_args.add_argument('--vcd-always',
+            help = 'always generate a VCD file when running a test',
+            action = 'store_true',
+            default = False,
+            dest = 'vcd_always')
+    parser.add_argument('--no-ansi-tty',
+            help = 'do not use ANSI TTY escape codes',
+            action = 'store_true',
+            default = False,
+            dest = 'no_ansi_tty')
+    parser.add_argument('query',
+            help = "Query of products to build and test")
+    parser.set_defaults(go = cmd)
+
+    return parser
+
 
 ninja_rules = {
     'compile_bluespec_obj': {
