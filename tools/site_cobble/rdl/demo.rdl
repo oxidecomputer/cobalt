@@ -1,0 +1,30 @@
+// Copyright 2022 Oxide Computer Company
+// This is SystemRDL description of the sw-accesible registers in the Gimlet
+// Sequencer FPGA.
+
+addrmap gimlet_seq_fpga {
+    name = "Gimlet Sequencer FPGA";
+    desc = "Register description of the Gimlet Sequencer FPGA";
+
+    default regwidth = 8;
+    default sw = rw;
+    default hw = r;
+
+    reg {
+        name = "Status Register";
+        field {
+            desc = "First something bad bit";
+        } SOMETHINGBAD[0:0] = 0;
+        field {
+            desc = "Second something bad bit";
+        } ANOTHERBAD[2:2] = 0;
+    } STATUS @ 0x0;
+
+    reg {
+        name = "Interrupt Control";
+        field {
+            desc = "These bits enable the SPI interrupt and select the interrupt level";
+        } INTLVL[1:0] = 0;
+    } INTCTRL @ 0x1;
+
+};

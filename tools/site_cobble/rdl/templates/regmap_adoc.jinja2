@@ -1,0 +1,26 @@
+{% macro top() -%}
+    {% for register in registers %}
+{{ register.get_property("name") }}
+[caption="Address: "]
+.{{ "{0:#06x}".format(register.offset) }} - {{ register.name }} Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+        {% for field in register.fields %}
+|[{{ field.bitslice_str() }}] | {{field.get_property('sw').name}} | {{ field.name }} | {{ field.desc }}
+        {% endfor %}
+|===
+
+    {% endfor %}
+{% endmacro %}
+
+Test Output:
+
+{{ top() }}
+
+
+{#.Power Device Signal Routing#}
+{#[cols=7,options="header"]#}
+{#|===#}
+{#| Bits | Name | Function#}
+{#|===#}
