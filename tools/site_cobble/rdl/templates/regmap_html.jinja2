@@ -1,0 +1,322 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+        "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="en">
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+<script>
+    $(document).ready(function(){
+    $(".toggler").click(function(e){
+        e.preventDefault();
+        $('.cat'+$(this).attr('data-prod-cat')).toggle();
+    });
+    });
+</script>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>RegisterMap</title>
+    </head>
+    <body>
+    <style type="text/css" media="screen,print">
+    <!--
+    A:link {text-decorations: none; color: black}
+    A:hover {text-decorations: underline; color: black}
+    -->
+    body, html{
+        margin:0;
+        padding:0;
+        font-family:Verdana,Geneva,Arial,sans-serif;
+        font-size: 1em;
+    }
+    p{
+        margin-left:auto;
+        margin-right:auto;
+        padding:1em;
+        font-family:Verdana,Geneva,Arial,sans-serif;
+        font-size: 1em;
+    }
+
+    h1, h3 {
+        margin:0;
+        position: relative; left: 20px;
+        line-height: 1.45;
+    }
+
+    /* registers table */
+    table.register {
+        margin-left:auto;
+        margin-right:auto;
+        width: 98%;
+        border: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing:0;
+        }
+    table.register tr.Header{
+        background-color: darkgrey;
+        height: 2em;
+        font-size: 100%;
+        border-bottom: medium solid #000;
+        border-collapse: collapse;
+        border-spacing:0;
+        }
+    table.register tr.Register{
+        height: 2em;
+        font-size: 75%;
+        border: thin solid #aaa;
+        border-collapse: collapse;
+        border-spacing:0;
+        }
+    table.register td.RegisterName {
+        width: 10em;
+        text-align: left;
+        font-weight: bold;
+        padding: 5px;
+        }
+    table.register td.Offset {
+        width: 10em;
+        text-align: left;
+        font-weight: bold;
+        padding: 5px;
+        border-left: 2px solid #aaa;
+        border-right: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing: 0;
+        }
+    table.register td.Slice {
+        width: 10em;
+        text-align: left;
+        font-weight: bold;
+        padding: 5px;
+        border-left: 2px solid #aaa;
+        border-right: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing: 0;
+
+        }
+    table.register td.Bitfield {
+        width: 10em;
+        text-align: left;
+        font-weight: bold;
+        padding: 5px;
+        border-left: 2px solid #aaa;
+        border-right: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing: 0;
+        }
+    table.register td.validbitdef {
+        background-color: #D1FFD4;
+        width: 10em;
+        max-width: 0;
+        text-align: left;
+        padding: 5px;
+        white-space: nowrap;
+        overflow: hidden;              /* "overflow" value must be different from "visible" */
+        text-overflow: ellipsis;
+        font-size: 75%;
+        table-layout: fixed;
+        border-left: 2px solid #aaa;
+        border-right: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing: 0;
+        border-bottom: 2px solid #aaa;
+        }
+    table.register td.rsvdbitdef {
+        background-color: lightgrey;
+        width: 10em;
+        max-width: 0;
+        text-align: left;
+        padding: 5px;
+        white-space: nowrap;
+        overflow: hidden;              /* "overflow" value must be different from "visible" */
+        text-overflow: ellipsis;
+        font-size: 75%;
+        table-layout: fixed;
+        border-left: 2px solid #aaa;
+        border-right: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing: 0;
+        border-bottom: 2px solid #aaa;
+        }
+    table.register td.validspandef {
+        background-color: #D1FFD4;
+        width: 10em;
+        max-width: 0;
+        text-align: center;
+        padding: 5px;
+        white-space: nowrap;
+        overflow: hidden;              /* "overflow" value must be different from "visible" */
+        text-overflow: ellipsis;
+        font-size: 75%;
+        table-layout: fixed;
+        border-left: 2px solid #aaa;
+        border-right: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing: 0;
+        border-bottom: 2px solid #aaa;
+        }
+    table.register td.rsvdspandef {
+        background-color: lightgrey;
+        width: 10em;
+        max-width: 0;
+        text-align: center;
+        padding: 5px;
+        white-space: nowrap;
+        overflow: hidden;              /* "overflow" value must be different from "visible" */
+        text-overflow: ellipsis;
+        font-size: 75%;
+        table-layout: fixed;
+        border-left: 2px solid #aaa;
+        border-right: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing: 0;
+        border-bottom: 2px solid #aaa;
+        }
+    table.register td.Description {
+        background-color: lightblue;
+        width: 10em;
+        text-align: left;
+        padding: 5px;
+        overflow: hidden;              /* "overflow" value must be different from "visible" */
+        text-overflow: ellipsis;
+        }
+    table.register td.Blank {
+        width: 10em;
+        text-align: left;
+        padding: 5px
+        }
+    table.register td.FieldHeader {
+        width: 10em;
+        text-align: left;
+        padding: 5px;
+        font-weight: bold;
+        border-left: 2px solid #aaa;
+        border-right: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing: 0;
+        border-bottom: 2px solid #bbb;
+        overflow: hidden;              /* "overflow" value must be different from "visible" */
+        text-overflow: ellipsis;
+        }
+    table.register td.FieldDesc {
+        width: 10em;
+        text-align: left;
+        padding: 5px;
+        border-left: 2px solid #aaa;
+        border-right: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing: 0;
+        border-bottom: 2px solid #aaa;
+        overflow: hidden;              /* "overflow" value must be different from "visible" */
+        text-overflow: ellipsis;
+        }
+    .offset_tooltip {
+        position: relative;
+        display: inline-block;
+    }
+    .offset_tooltip .tooltip_text {
+        visibility: hidden;
+        width: 120px;
+        background-color: grey;
+        color: #fff;
+        text-align: center;
+        padding: 5px 0;
+        border-radius: 6px;
+        /* Position the tooltip */
+        position: absolute;
+        z-index: 1;
+        bottom: 100%;
+        left: 50%;
+        margin-left: -60px;
+    }
+    .offset_tooltip:hover .tooltip_text {
+        visibility: visible;
+    }
+    </style>
+    <div id="header">
+        <h1>{{map_name}}</h1>
+        {# <h3>Base:  0xc8030000</h3> #}
+        {# <h3>IRQ Bit: 2</h3> #}
+        {# <h3>IRQ Base: 0xc0000010</h3> #}
+        <!--$optional_header -->
+    </div>
+    <table class="register">
+    <tr class="Header">
+        <td class="RegisterName" colspan="3*">Register Name</td>
+        <td class="Offset" colspan="2*">Byte Offset</td>
+        <td class="Slice" colspan="1*">Slice</td>
+        <td class="Bitfield" colspan="2*">Bit<br>7</td>
+        <td class="Bitfield" colspan="2*">Bit<br>6</td>
+        <td class="Bitfield" colspan="2*">Bit<br>5</td>
+        <td class="Bitfield" colspan="2*">Bit<br>4</td>
+        <td class="Bitfield" colspan="2*">Bit<br>3</td>
+        <td class="Bitfield" colspan="2*">Bit<br>2</td>
+        <td class="Bitfield" colspan="2*">Bit<br>1</td>
+        <td class="Bitfield" colspan="2*">Bit<br>0</td>
+
+        {# <td class="Bitfield" colspan="2*">Bit<br>31/23/15/7</td> #}
+        {# <td class="Bitfield" colspan="2*">Bit<br>30/22/14/6</td> #}
+        {# <td class="Bitfield" colspan="2*">Bit<br>29/21/13/5</td> #}
+        {# <td class="Bitfield" colspan="2*">Bit<br>28/20/12/4</td> #}
+        {# <td class="Bitfield" colspan="2*">Bit<br>27/19/11/3</td> #}
+        {# <td class="Bitfield" colspan="2*">Bit<br>26/18/10/2</td> #}
+        {# <td class="Bitfield" colspan="2*">Bit<br>25/17/9/1</td>  #}
+        {# <td class="Bitfield" colspan="2*">Bit<br>24/16/8/0</td>  #}
+    </tr>
+
+    {# Loop over registers #}
+    {% for register in registers %}
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="{{loop.index0}}">{{register.name}}</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                {{"{:#0x}".format(register.offset)}}
+                {#<span class="tooltip_text">0xc8030000</span>#}
+            </div>
+                {#<div style="float:right;width:49%;text-align:right">(0)</div>#}
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;{{register.get_property("name")}}</td>
+    </tr>
+    {# Loop over bytes/Fields #}
+    <!-- Loop over bytes in register !-->
+    <tr class="cat{{loop.index0}}" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+            {% for field in register.fields %}
+                {% if field.name == "-" %}
+                <td class="rsvdspandef" colspan="{{2 * field.width}}*">RSVD</td>
+                {% else %}
+                <td class="validspandef" colspan="{{2 * field.width}}*">{{field.name}}</td>
+                {% endif %}
+            {% endfor %}
+    </tr>
+    {# <tr class="cat{{loop.index0}}" style="display: none"> #}
+    {#     <td class="RegisterName" colspan="3*"></td> #}
+    {#     <td class="Offset" colspan="2*"></td> #}
+    {#     <td class="bitdef" colspan="1*">&nbsp;23..16</td> #}
+    {#             <td class="rsvdspandef" colspan="16*">RSVD</td>#}
+    {# </tr> #}
+    {# This is the header for the expanded section #}
+    <tr class="cat{{loop.index0}}" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    {% set outer_loop = loop %}
+    {% for field in register.fields %}
+    {% if field.name != '-' %}
+    <tr class="cat{{outer_loop.index0}}" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">{{field.name}}</td>
+        <td class="FieldDesc" colspan="1*">{{ field.bitslice_str() }}</td>
+        <td class="FieldDesc" colspan="2*">{{field.get_property('sw').name}}</td>
+        <td class="FieldDesc" colspan="2*">{{field.get_property('reset')}}</td>
+        <td class="FieldDesc" colspan="14">{{field.desc}}</td>
+    </tr>
+    {% endif %}
+    {% endfor %}
+    {% endfor %}
+    </table>
+    </body>
+</html>

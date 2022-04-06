@@ -122,7 +122,7 @@ def _compile_objects(package, sources, ctx):
 
     bos = []
     dyndeps = []
-    for (source,orig) in zip(sources_i, sources):
+    for (source, orig) in zip(sources_i, sources):
         # Construct the path to the new .bo
         output = package.outpath(env, os.path.splitext(os.path.basename(source))[0] + '.bo')
         # Derive the path of the generated dyndep file.
