@@ -77,7 +77,6 @@ class RegBlockExporter:
 
     @staticmethod
     def _gen_output_name(template_filename, node_name):
-        print(f"gen: {template_filename}, {node_name}")
         if "bsv" in template_filename:
             return f"{to_camel_case(node_name.lower(), uppercamel=True)}.bsv"
         if "adoc" in template_filename:
