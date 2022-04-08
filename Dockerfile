@@ -49,6 +49,7 @@ RUN apt-get update && \
         pkg-config \
         # Cobble deps, Python 3 comes with the OSS CAD suite below.
         ninja-build \
+        python3-pip \
         && \
     rm -rf /var/lib/apt/lists/* && \
     locale-gen "en_US.UTF-8"
@@ -93,6 +94,11 @@ RUN git clone --recursive $BSC_CONTRIB_URL /tmp/bsc-contrib && cd /tmp/bsc-contr
     # Build, install and clean up.
     make PREFIX=$INSTALL_PREFIX/bluespec install && \
     rm -rf /tmp/bsc-contrib
+
+# Install python dependencies from cobble's requirements.txt
+COPY requirements.txt /tmp/requirements.txt
+RUN pip3 install -r /tmp/requirements.txt && \
+    rm /tmp/requirements.txt
 
 USER $USERNAME
 WORKDIR $HOME
