@@ -1,2 +1,5 @@
 # Ignore everything, for an empty build context
 **
+
+# Except requirements.txt which we need to copy in
+!requirements.txt
