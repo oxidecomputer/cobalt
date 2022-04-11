@@ -78,7 +78,7 @@ instance Bits#(Control, 8);
     function Control unpack (Bit#(8) b);
         let r = Control {
         en: b[7] , 
-        ien: b[6] , 
+        ien: b[6] 
         };
         
         return r;
@@ -296,7 +296,7 @@ typedef struct {
     
         Bit#(1)            tip     ;  // bit 1
     
-        Bit#(1)            if      ;  // bit 0
+        Bit#(1)            ifl     ;  // bit 0
     
 } Status deriving (Eq, FShow);
 // Register offsets
@@ -305,7 +305,7 @@ Integer statusOffset = 6;
     Bit#(8) statusRxAck   = 'h80;
     Bit#(8) statusBusBusy = 'h40;
     Bit#(8) statusTip      = 'h02;
-    Bit#(8) statusIf       = 'h01;
+    Bit#(8) statusIfl      = 'h01;
 // Register STATUS custom type-classes
 instance Bits#(Status, 8);
     function Bit#(8) pack (Status r);
@@ -313,7 +313,7 @@ instance Bits#(Status, 8);
         bts[7] = r.rx_ack;
         bts[6] = r.bus_busy;
         bts[1] = r.tip;
-        bts[0] = r.if;
+        bts[0] = r.ifl;
         return bts;
     endfunction: pack
     function Status unpack (Bit#(8) b);
@@ -321,7 +321,7 @@ instance Bits#(Status, 8);
         rx_ack: b[7] , 
         bus_busy: b[6] , 
         tip: b[1] , 
-        if: b[0] 
+        ifl: b[0] 
         };
         
         return r;

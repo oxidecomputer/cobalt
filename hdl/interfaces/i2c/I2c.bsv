@@ -9,15 +9,17 @@ package I2c;
 import GetPut::*;
 import StmtFSM::*;
 
+import Strobe::*;
+
 import I2cCoreRegs::*;
 
 // If proper tri-stating requires access to device primitives, leave that up to
 // the user to implement for their device. If not, push this down a layer and
 // simple expose SCL/SDA Inout interfaces instead?
 interface I2cPins;
-    method Bit(#1) scl_o;
+    method Bit#(1) scl_o;
     method Action scl_i(Bit#(1) val);
-    method Bit(#1) sda_o;
+    method Bit#(1) sda_o;
     method Action sda_i(Bit#(1) val);
 endinterface
 
@@ -56,11 +58,11 @@ typedef enum {
 
 module mkI2cCore (I2cCore);
 
-    I2cState core_state <- mkReg(Invalid);
+    Reg#(I2cState) core_state <- mkReg(Invalid);
 
     Wire#(Control) regs_ctrl    <- mkWire();
     Wire#(Command) regs_cmd     <- mkWire();
-    Reg#(Bool) is_start_sent    <- mkReg();
+    Reg#(Bool) is_start_sent    <- mkReg(False);
 
     (* fire_when_enabled *)
     rule do_reset_core (core_state == Invalid);
@@ -107,21 +109,42 @@ module mkI2cCore (I2cCore);
 
 endmodule
 
-module mkBitControl (BitControl);
+module mkBitControl #(Integer core_clk_freq, Integer i2c_scl_freq) (BitControl);
+
+    // generate strobe to toggle scl at a desired period
+    // ex: 50MHz / 100KHz / 2 = 250
+    Integer scl_half_period_limit = core_clk_freq / i2c_scl_freq / 2;
+
+    Strobe#(8) scl_toggle <- mkLimitStrobe(1, scl_half_period_limit, 0);
+
+    Reg#(Bit#(1)) scl_ <- mkReg(1);
+    Reg#(Bit#(1)) sda_ <- mkReg(1);
 
     PulseWire start_ <- mkPulseWire();
 
-    FSM gen_start <- mkFSM(seq
-        
-    endseq);
+    FSM gen_start <- mkFSMWithPred(seq
+        sda_ <= 0;
+        delay(20);
+        scl_ <= 0;
+    endseq, !scl_toggle);
 
     (* fire_when_enabled *)
-    rule do_start (start_);
-
+    rule do_scl_toggle (scl_toggle);
+        scl_ <= ~scl_;
     endrule
 
-    method start = start_.send;
+    (* fire_when_enabled *)
+    rule do_start (start_ && scl_toggle);
+        gen_start.start();
+    endrule
+
+    method Action start(Bool val) = start_.send;
+
+    interface I2cPins pins;
+        method scl_o = scl_;
+        method sda_o = sda_;
+    endinterface
 
 endmodule
 
-endpackage: I2c;
+endpackage: I2c

@@ -7,7 +7,7 @@ Clock Prescale
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[15:0] | rw | PRESCALE | CLK / (4 * SCL), ex: 50MHz / (4 * 400KHz) = 31.25 = 0x1F
+|[15:0] | rw | PRESCALE | Not yet supported, reserving for future use.
 |===
 
 Control
@@ -65,7 +65,7 @@ Status
 |[6] | r | BUS_BUSY | I2C bus is busy. '1' after a START, '0' after a STOP.
 |[5:2] |  | - | Reserved
 |[1] | r | TIP | Transfer In Progress. '1' when trasnferring data, '0' when complete.
-|[0] | r | IF | Interrupt Flag. '1' when interrupt is pending (completed byte transfer). Will cause interrupt when IEN is set.
+|[0] | r | IFL | Interrupt FLag. '1' when interrupt is pending (completed byte transfer). Will cause interrupt when IEN is set.
 |===
 
 

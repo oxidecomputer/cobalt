@@ -1,8 +1,21 @@
 # -*- python -*- vim:syntax=python:
 
-bluespec_library('i2c_core_regs',
+bluespec_library('RegCommon',
+    sources = [
+        './i2c_core_regs/RegCommon.bsv',
+    ])
+
+bluespec_library('I2cCoreRegs',
     sources = [
         './i2c_core_regs/I2cCoreRegs.bsv',
+    ],
+    deps = [
+        ':RegCommon',
+    ])
+
+bluespec_library('Strobe',
+    sources = [
+        '../../Strobe.bsv'
     ])
 
 bluespec_library('I2c',
@@ -10,21 +23,16 @@ bluespec_library('I2c',
         'I2c.bsv',
     ],
     deps = [
-        ':i2c_core_regs',
+        ':I2cCoreRegs',
+        ':Strobe'
     ])
 
-bluespec_sim('i2c_tests',
-    top = 'I2c_test.bsv',
+bluesim_tests('I2cTests',
+    env = 'bluesim_default',
+    suite = 'I2cTest.bsv',
     modules = [
-        'mkI2cWriteTest',
+        'mkI2cBitControlTest',
     ],
     deps = [
         ':I2c',
-    ])
-
-bluesim_binary('i2c_basic_test',
-    env = 'bluesim_default',
-    top = ':i2c_tests#mkI2CTest',
-    deps = [
-        ':i2c_tests',
     ])

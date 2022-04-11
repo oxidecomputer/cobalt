@@ -15,11 +15,11 @@
                     "inst_name": "PRESCALE",
                     "lsb": 0,
                     "msb": 15,
-                    "reset": 31,
+                    "reset": 0,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "CLK / (4 * SCL), ex: 50MHz / (4 * 400KHz) = 31.25 = 0x1F"
+                    "desc": "Not yet supported, reserving for future use."
                 }
             ]
         },
@@ -189,14 +189,14 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "IF",
+                    "inst_name": "IFL",
                     "lsb": 0,
                     "msb": 0,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Interrupt Flag. '1' when interrupt is pending (completed byte transfer). Will cause interrupt when IEN is set."
+                    "desc": "Interrupt FLag. '1' when interrupt is pending (completed byte transfer). Will cause interrupt when IEN is set."
                 },
                 {
                     "type": "field",

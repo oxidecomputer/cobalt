@@ -101,7 +101,7 @@ addrmap i2c_core {
         } TIP[1:1] = 0;
 
         field {
-            desc = "Interrupt Flag. '1' when interrupt is pending (completed byte transfer). Will cause interrupt when IEN is set.";
-        } IF[0:0] = 0;
+            desc = "Interrupt FLag. '1' when interrupt is pending (completed byte transfer). Will cause interrupt when IEN is set.";
+        } IFL[0:0] = 0;
     } STATUS;
 };

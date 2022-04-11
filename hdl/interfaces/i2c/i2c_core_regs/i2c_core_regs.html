@@ -279,8 +279,8 @@
         <td class="FieldDesc" colspan="2*">PRESCALE</td>
         <td class="FieldDesc" colspan="1*">15:0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">31</td>
-        <td class="FieldDesc" colspan="14">CLK / (4 * SCL), ex: 50MHz / (4 * 400KHz) = 31.25 = 0x1F</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Not yet supported, reserving for future use.</td>
     </tr>
     <tr class="Register">
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="1">CONTROL</a></td>
@@ -498,7 +498,7 @@
                 <td class="validspandef" colspan="2*">BUS_BUSY</td>
                 <td class="rsvdspandef" colspan="8*">RSVD</td>
                 <td class="validspandef" colspan="2*">TIP</td>
-                <td class="validspandef" colspan="2*">IF</td>
+                <td class="validspandef" colspan="2*">IFL</td>
     </tr>
     <tr class="cat5" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -534,11 +534,11 @@
     </tr>
     <tr class="cat5" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">IF</td>
+        <td class="FieldDesc" colspan="2*">IFL</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Interrupt Flag. '1' when interrupt is pending (completed byte transfer). Will cause interrupt when IEN is set.</td>
+        <td class="FieldDesc" colspan="14">Interrupt FLag. '1' when interrupt is pending (completed byte transfer). Will cause interrupt when IEN is set.</td>
     </tr>
     </table>
     </body>

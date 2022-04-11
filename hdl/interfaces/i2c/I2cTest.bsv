@@ -4,11 +4,28 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package I2C_test;
+package I2c_test;
 
-import I2C::*;
+import I2c::*;
 
-module mkI2cWriteTest (I2cCore);
-endmodule: mkI2cWriteTest
+import Assert::*;
+import StmtFSM::*;
 
-endpackage: I2C_test
+(* synthesize *)
+module mkI2cBitControlTest (Empty);
+    BitControl bit_ctrl <- mkBitControl(500, 100);
+    
+    mkAutoFSM(seq
+        // check state coming out of reset
+        action
+            dynamicAssert(bit_ctrl.pins.scl_o == 1, "SCL should be high");
+            dynamicAssert(bit_ctrl.pins.sda_o == 1, "SDA should be high")
+        endaction
+    endseq);
+endmodule
+
+(* synthesize *)
+module mkI2cWriteTest (Empty);
+endmodule
+
+endpackage: I2c_test
