@@ -17,8 +17,8 @@ addrmap i2c_core {
         regwidth = 16;
 
         field {
-            desc = "CLK / (4 * SCL), ex: 50MHz / (4 * 400KHz) = 31.25 = 0x1F";
-        } PRESCALE[15:0] = 0x1F;
+            desc = "Not yet supported, reserving for future use.";
+        } PRESCALE[15:0] = 0;
     } PRESCALE;
 
     reg {

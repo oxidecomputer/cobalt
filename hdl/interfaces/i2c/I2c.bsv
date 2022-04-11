@@ -6,6 +6,9 @@
 
 package I2c;
 
+import GetPut::*;
+import StmtFSM::*;
+
 import I2cCoreRegs::*;
 
 // If proper tri-stating requires access to device primitives, leave that up to
@@ -30,6 +33,16 @@ endinterface
 interface I2cCore;
     interface I2cPins pins;
     interface I2cCoreRegisters regs;
+endinterface
+
+interface BitControl;
+    interface I2cPins pins;
+    interface Put#(Bit#(8)) wr_data;
+    interface Get#(Bit#(8)) rd_data;
+    method Action start(Bool val);
+    method Action stop(Bool val);
+    method Action write(Bool val);
+    method Action read(Bool val);
 endinterface
 
 typedef enum {
@@ -91,6 +104,23 @@ module mkI2cCore (I2cCore);
         method Action control(Control val)  = regs_ctrl._write(val);
         method Action command(Command val)  = regs_cmd._write(val);
     endinterface
+
+endmodule
+
+module mkBitControl (BitControl);
+
+    PulseWire start_ <- mkPulseWire();
+
+    FSM gen_start <- mkFSM(seq
+        
+    endseq);
+
+    (* fire_when_enabled *)
+    rule do_start (start_);
+
+    endrule
+
+    method start = start_.send;
 
 endmodule
 
