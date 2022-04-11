@@ -64,6 +64,10 @@ class Register:
         self.fields = []
         self._max_field_name_chars = 6  # minimum is 6 for "zerosX"
 
+    @property
+    def packed_fields(self):
+        return [x for x in self.fields if not isinstance(x, ReservedField)]
+
     def elaborate(self):
         """
         Register elaboration consists of sorting the defined fields by the

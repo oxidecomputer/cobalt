@@ -10,17 +10,10 @@ import RegCommon::*;
 {% set reserved_cntr = namespace(value=0) %}
 // Register {{register.name}} definitions
 typedef struct {
-    {% for field in register.fields %}
-        {% if isinstance(field, ReservedField) %}
-            {% set field_type = "ReservedZero#({})".format(field.width) %}
-            {% set name = register.format_field_name("zeros{}".format(reserved_cntr.value)) %}
-            {% set reserved_cntr.value = reserved_cntr.value + 1 %}
-        {% else %}
-            {% set field_type = "Bit#({})".format(field.width) %}
-            {% set name =  register.format_field_name(field.name)|lower %}
-        {{ "{:<18}".format(field_type)}} {{ name }};  // bit {{field.bitslice_str()}}
-        {% endif %}
-    
+    {% for field in register.packed_fields %}
+        {% set field_type = "Bit#({})".format(field.width) %}
+        {% set name =  register.format_field_name(field.name)|lower %}
+        {{ "{:<18}".format(field_type)}} {{ name }};  // bit {{field.bitslice_str()}}    
     {% endfor %}
 {% set reg_name_camel = register.name|lower|to_camel_case(uppercamel=True) %}
 } {{ reg_name_camel }} deriving (Eq, FShow);
@@ -45,10 +38,8 @@ instance Bits#({{reg_name_camel}}, {{register.width}});
     endfunction: pack
     function {{reg_name_camel}} unpack (Bit#({{register.width}}) b);
         let r = {{reg_name_camel}} {
-        {% for field in register.fields %}
-        {% if not isinstance(field, ReservedField) %}
+        {% for field in register.packed_fields %}
         {{register.format_field_name(field.name).strip()|lower}}: b[{{field.bitslice_str()}}] {{ ", " if not loop.last else "" }}
-        {% endif %}
         {% endfor %}
         };
         
