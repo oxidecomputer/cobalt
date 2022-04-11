@@ -8,16 +8,16 @@ import cobble.env
 from cobble.plugin import *
 from cobble.git_version import *
 
-GEN_VERSION_BSV = cobble.env.overrideable_string_key('gen_version_bsv',
+GEN_GIT_VERSION_BSV = cobble.env.overrideable_string_key('gen_git_version_bsv',
           help = 'Path of version script')
 #         default = 'cat',
 #         help = 'Path of cat binary.')
 # CAT_FLAGS = cobble.env.appending_string_seq_key('shell_cat_flags',
 #         help = 'Extra flags to pass to cat.')
 
-KEYS = frozenset([GEN_VERSION_BSV])
+KEYS = frozenset([GEN_GIT_VERSION_BSV])
 
-_ver_keys = frozenset([GEN_VERSION_BSV.name, GIT_VERSION_CODE.name, GIT_VERSION_REV_SHA1_SHORT.name])
+_ver_keys = frozenset([GEN_GIT_VERSION_BSV.name, GIT_VERSION_CODE.name, GIT_VERSION_REV_SHA1_SHORT.name])
 
 
 @target_def
@@ -34,7 +34,7 @@ def bsv_fpga_version(package, name, *,
             env = env,
             inputs = sources,
             outputs = [output],
-            rule = 'gen_version_bsv')
+            rule = 'gen_git_version_bsv')
 
         product.expose(path = output, name = bsv_name)
         return (using, [product])
@@ -49,8 +49,8 @@ def bsv_fpga_version(package, name, *,
 
 
 ninja_rules = {
-    'gen_version_bsv': {
-        'command': ' python3 $gen_version_bsv $git_version_code $git_version_rev_sha1_short > $out',
-        'description': 'gen_version_bsv.py $out',
+    'gen_git_version_bsv': {
+        'command': ' python3 $gen_git_version_bsv $git_version_code $git_version_rev_sha1_short > $out',
+        'description': 'gen_git_version_bsv.py $out',
     }
 }

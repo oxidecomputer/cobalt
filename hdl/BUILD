@@ -1,5 +1,18 @@
 # -*- python -*- vim:syntax=python:
 
+# FPGA Version package
+bsv_fpga_version('FPGARev',
+)
+bluespec_library('FPGARevBSV',
+    sources = [
+       ':FPGARev#FPGARev.bsv',
+    ],
+    deps = [
+        ':FPGARev'
+    ]
+)
+
+# Cobalt modules
 bluespec_library('BitSampling',
     sources = [
         'BitSampling.bsv',
