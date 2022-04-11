@@ -1,0 +1,73 @@
+
+Test Output:
+
+Clock Prescale
+[caption="Address: "]
+.0x0000 - PRESCALE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[15:0] | rw | PRESCALE | CLK / (4 * SCL), ex: 50MHz / (4 * 400KHz) = 31.25 = 0x1F
+|===
+
+Control
+[caption="Address: "]
+.0x0002 - CONTROL Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | rw | EN | I2C Core enable. Set to '1' to enable core, '0' to disable.
+|[6] | rw | IEN | I2C Core interrupt enable. Set to '1' to enable interrupt, '0' to disable.
+|[5:0] |  | - | Reserved
+|===
+
+Transmit
+[caption="Address: "]
+.0x0003 - TRANSMIT Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:1] | rw | TX_DATA | Next byte to transmit
+|[0] | rw | RW | Read/write bit. '1' if reading from peripheral, '0' if writing to it.
+|===
+
+Receive
+[caption="Address: "]
+.0x0004 - RECEIVE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | RX_DATA | Last byte recieved
+|===
+
+Command
+[caption="Address: "]
+.0x0005 - COMMAND Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | rw | START | Create START condition
+|[6] | rw | STOP | Create STOP condition
+|[5] | rw | READ | Read from peripheral
+|[4] | rw | WRITE | Write to peripheral
+|[3] | rw | ACK | When receiving, '0' for ACK, '1' for NACK
+|[2:1] |  | - | Reserved
+|[0] | rw | IACK | Interrupt acknowledge. Set to clear a pending interrupt
+|===
+
+Status
+[caption="Address: "]
+.0x0006 - STATUS Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | RX_ACK | Received ACK from peripheral. '1' when no ACK received, '0' when ACK received,
+|[6] | r | BUS_BUSY | I2C bus is busy. '1' after a START, '0' after a STOP.
+|[5:2] |  | - | Reserved
+|[1] | r | TIP | Transfer In Progress. '1' when trasnferring data, '0' when complete.
+|[0] | r | IF | Interrupt Flag. '1' when interrupt is pending (completed byte transfer). Will cause interrupt when IEN is set.
+|===
+
+
+
+

@@ -1,0 +1,237 @@
+{
+    "type": "addrmap",
+    "inst_name": "i2c_core",
+    "addr_offset": 0,
+    "children": [
+        {
+            "type": "reg",
+            "inst_name": "PRESCALE",
+            "addr_offset": 0,
+            "regwidth": 16,
+            "min_accesswidth": 16,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "PRESCALE",
+                    "lsb": 0,
+                    "msb": 15,
+                    "reset": 31,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "CLK / (4 * SCL), ex: 50MHz / (4 * 400KHz) = 31.25 = 0x1F"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "CONTROL",
+            "addr_offset": 2,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "IEN",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "I2C Core interrupt enable. Set to '1' to enable interrupt, '0' to disable."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "EN",
+                    "lsb": 7,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "I2C Core enable. Set to '1' to enable core, '0' to disable."
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "TRANSMIT",
+            "addr_offset": 3,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "RW",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Read/write bit. '1' if reading from peripheral, '0' if writing to it."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "TX_DATA",
+                    "lsb": 1,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Next byte to transmit"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "RECEIVE",
+            "addr_offset": 4,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "RX_DATA",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Last byte recieved"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "COMMAND",
+            "addr_offset": 5,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "IACK",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Interrupt acknowledge. Set to clear a pending interrupt"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "ACK",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When receiving, '0' for ACK, '1' for NACK"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "WRITE",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Write to peripheral"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "READ",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Read from peripheral"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "STOP",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Create STOP condition"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "START",
+                    "lsb": 7,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Create START condition"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "STATUS",
+            "addr_offset": 6,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "IF",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Interrupt Flag. '1' when interrupt is pending (completed byte transfer). Will cause interrupt when IEN is set."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "TIP",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Transfer In Progress. '1' when trasnferring data, '0' when complete."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "BUS_BUSY",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "I2C bus is busy. '1' after a START, '0' after a STOP."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "RX_ACK",
+                    "lsb": 7,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Received ACK from peripheral. '1' when no ACK received, '0' when ACK received,"
+                }
+            ]
+        }
+    ]
+}

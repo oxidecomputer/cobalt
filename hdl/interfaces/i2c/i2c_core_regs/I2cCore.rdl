@@ -1,0 +1,107 @@
+// Copyright 2022 Oxide Computer Company
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+addrmap i2c_core {
+    name = "I2C Core Registers";
+    desc = "Register description for the I2C Core's control registers";
+
+    default regwidth = 8;
+    default sw = rw;
+    default hw = r;
+
+    reg {
+        name = "Clock Prescale";
+        regwidth = 16;
+
+        field {
+            desc = "CLK / (4 * SCL), ex: 50MHz / (4 * 400KHz) = 31.25 = 0x1F";
+        } PRESCALE[15:0] = 0x1F;
+    } PRESCALE;
+
+    reg {
+        name = "Control";
+
+        field {
+            desc = "I2C Core enable. Set to '1' to enable core, '0' to disable.";
+        } EN[7:7] = 0;
+
+        field {
+            desc = "I2C Core interrupt enable. Set to '1' to enable interrupt, '0' to disable.";
+        } IEN[6:6] = 0;
+    } CONTROL;
+
+    reg {
+        name = "Transmit";
+
+        field {
+            desc = "Next byte to transmit";
+        } TX_DATA[7:1] = 0;
+
+        field {
+            desc = "Read/write bit. '1' if reading from peripheral, '0' if writing to it.";
+        } RW[0:0] = 0;
+    } TRANSMIT;
+
+    reg {
+        name = "Receive";
+        default sw = r;
+        default hw = rw;
+
+        field {
+            desc = "Last byte recieved";
+        } RX_DATA[7:0] = 0;
+    } RECEIVE;
+
+    reg {
+        name = "Command";
+
+        field {
+            desc = "Create START condition";
+        } START[7:7] = 0;
+
+        field {
+            desc = "Create STOP condition";
+        } STOP[6:6] = 0;
+
+        field {
+            desc = "Read from peripheral";
+        } READ[5:5] = 0;
+
+        field {
+            desc = "Write to peripheral";
+        } WRITE[4:4] = 0;
+
+        field {
+            desc = "When receiving, '0' for ACK, '1' for NACK";
+        } ACK[3:3] = 0;
+
+        field {
+            desc = "Interrupt acknowledge. Set to clear a pending interrupt";
+        } IACK[0:0] = 0;
+    } COMMAND;
+
+    reg {
+        name = "Status";
+        default sw = r;
+        default hw = rw;
+
+        field {
+            desc = "Received ACK from peripheral. '1' when no ACK received, '0' when ACK received,";
+        } RX_ACK[7:7] = 0;
+
+        field {
+            desc = "I2C bus is busy. '1' after a START, '0' after a STOP.";
+        } BUS_BUSY[6:6] = 0;
+
+        field {
+            desc = "Transfer In Progress. '1' when trasnferring data, '0' when complete.";
+        } TIP[1:1] = 0;
+
+        field {
+            desc = "Interrupt Flag. '1' when interrupt is pending (completed byte transfer). Will cause interrupt when IEN is set.";
+        } IF[0:0] = 0;
+    } STATUS;
+};
