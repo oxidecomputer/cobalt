@@ -12,6 +12,13 @@ bluespec_library('FPGARevBSV',
     ]
 )
 
+# Common support scaffolding
+bluespec_library('RegCommon',
+    sources = [
+       'RegCommon.bsv',
+    ],
+)
+
 # Cobalt modules
 bluespec_library('BitSampling',
     sources = [
