@@ -1,14 +1,15 @@
 # -*- python -*- vim:syntax=python:
 
 # FPGA Version package
-bsv_fpga_version('FPGARev',
+bsv_fpga_version('git_version',
 )
-bluespec_library('FPGARevBSV',
+
+bluespec_library('GitVersion',
     sources = [
-       ':FPGARev#FPGARev.bsv',
+       ':git_version#git_version.bsv',
     ],
     deps = [
-        ':FPGARev'
+        ':git_version'
     ]
 )
 

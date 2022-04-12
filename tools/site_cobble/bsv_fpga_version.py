@@ -50,7 +50,7 @@ def bsv_fpga_version(package, name, *,
 
 ninja_rules = {
     'gen_git_version_bsv': {
-        'command': ' python3 $gen_git_version_bsv $git_version_code $git_version_rev_sha1_short > $out',
+        'command': ' python3 $gen_git_version_bsv $git_version_code $git_version_rev_sha1_short $out > $out',
         'description': 'gen_git_version_bsv.py $out',
     }
 }

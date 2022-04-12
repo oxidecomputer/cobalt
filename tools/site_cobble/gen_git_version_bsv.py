@@ -1,5 +1,6 @@
 import argparse
 
+from pathlib import Path
 from string import Template
 
 
@@ -8,10 +9,11 @@ parser = argparse.ArgumentParser(
 )
 parser.add_argument(dest='version_code', help="Integer version code")
 parser.add_argument(dest='short_sha', help="8 character short SHA")
+parser.add_argument(dest='output_filename', help="string for bluespec package name")
 
 template = Template("""
 // Auto-generated as part of the FPGA build.
-package FPGARev;
+package $package_name;
 
 Bit#(32) version = 'h$version;
 Bit#(32) sha = 'h$sha;
@@ -29,4 +31,6 @@ if __name__ == '__main__':
     version = f'{int(args.version_code, 0):x}'
     sha = f'{int(args.short_sha, 16):x}'
 
-    print(template.substitute(version=version, sha=sha), end='')
+    package_name = str(Path(args.output_filename).stem)
+
+    print(template.substitute(version=version, sha=sha, package_name=package_name), end='')
