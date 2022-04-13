@@ -6,6 +6,7 @@
 
 package I2c;
 
+import Connectable::*;
 import GetPut::*;
 import StmtFSM::*;
 
@@ -35,16 +36,6 @@ endinterface
 interface I2cCore;
     interface I2cPins pins;
     interface I2cCoreRegisters regs;
-endinterface
-
-interface BitControl;
-    interface I2cPins pins;
-    interface Put#(Bit#(8)) wr_data;
-    interface Get#(Bit#(8)) rd_data;
-    method Action start(Bool val);
-    method Action stop(Bool val);
-    method Action write(Bool val);
-    method Action read(Bool val);
 endinterface
 
 typedef enum {
@@ -109,36 +100,75 @@ module mkI2cCore (I2cCore);
 
 endmodule
 
+interface BitControl;
+    interface I2cPins pins;
+    interface Put#(Bit#(8)) wr_data;
+    interface Get#(Bit#(8)) rd_data;
+    method Action start(Bool val);
+    method Action stop(Bool val);
+    method Action write(Bool val);
+    method Action read(Bool val);
+    method Bool busy;
+endinterface
+
 module mkBitControl #(Integer core_clk_freq, Integer i2c_scl_freq) (BitControl);
 
     // generate strobe to toggle scl at a desired period
     // ex: 50MHz / 100KHz / 2 = 250
     Integer scl_half_period_limit = core_clk_freq / i2c_scl_freq / 2;
 
-    Strobe#(8) scl_toggle <- mkLimitStrobe(1, scl_half_period_limit, 0);
+    Strobe#(8) scl_toggle_strobe <- mkLimitStrobe(1, scl_half_period_limit, 0);
 
-    Reg#(Bit#(1)) scl_ <- mkReg(1);
-    Reg#(Bit#(1)) sda_ <- mkReg(1);
+    Reg#(Bool) in_transaction <- mkReg(False);
 
-    PulseWire start_ <- mkPulseWire();
+    Reg#(Bit#(1)) scl_  <- mkReg(1);
+    Reg#(Bit#(1)) sda_  <- mkReg(1);
+    Wire#(Bool) busy_   <- mkWire();
+
+    PulseWire start_        <- mkPulseWire();
+    PulseWire stop_         <- mkPulseWire();
 
     FSM gen_start <- mkFSMWithPred(seq
         sda_ <= 0;
-        delay(20);
+        delay(10);
         scl_ <= 0;
-    endseq, !scl_toggle);
+    endseq, !scl_toggle_strobe);
+
+    FSM gen_stop <- mkFSMWithPred(seq
+        scl_ <= 1;
+        delay(10);
+        sda_ <= 1;
+    endseq, !scl_toggle_strobe);
 
     (* fire_when_enabled *)
-    rule do_scl_toggle (scl_toggle);
+    rule do_tick_scl_toggle_strobe (in_transaction);
+        scl_toggle_strobe.send();
+    endrule
+
+    (* fire_when_enabled *)
+    rule do_scl_toggle_counter (scl_toggle_strobe);
         scl_ <= ~scl_;
     endrule
 
+    (* fire_when_enabled, no_implicit_conditions *)
+    rule do_busy;
+        busy_ <= !gen_start.done() || !gen_stop.done();
+    endrule
+
     (* fire_when_enabled *)
-    rule do_start (start_ && scl_toggle);
+    rule do_start (start_ && !stop_ && !busy_);
         gen_start.start();
     endrule
 
-    method Action start(Bool val) = start_.send;
+    (* fire_when_enabled *)
+    rule do_stop (stop_ && !start_ && !busy_);
+        gen_stop.start();
+    endrule
+
+    method Action start(Bool val)   = start_.send;
+    method Action stop(Bool val)    = stop_.send;
+
+    method busy = busy_;
 
     interface I2cPins pins;
         method scl_o = scl_;

@@ -31,7 +31,8 @@ bluesim_tests('I2cTests',
     env = 'bluesim_default',
     suite = 'I2cTest.bsv',
     modules = [
-        'mkI2cBitControlTest',
+        'mkI2cBitControlStartTest',
+        'mkI2cBitControlStopTest',
     ],
     deps = [
         ':I2c',
