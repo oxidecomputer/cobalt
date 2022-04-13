@@ -10,10 +10,6 @@ from cobble.git_version import *
 
 GEN_GIT_VERSION_BSV = cobble.env.overrideable_string_key('gen_git_version_bsv',
           help = 'Path of version script')
-#         default = 'cat',
-#         help = 'Path of cat binary.')
-# CAT_FLAGS = cobble.env.appending_string_seq_key('shell_cat_flags',
-#         help = 'Extra flags to pass to cat.')
 
 KEYS = frozenset([GEN_GIT_VERSION_BSV])
 

@@ -45,13 +45,6 @@ def rdl(package, name, *,
         p_env = env.derive({
             RDL_ODIR.name:out_dir,
         })
-        # in_name = Path(sources_i[0]).stem
-        # bsv_name = f'{to_camel_case(in_name.lower(), uppercamel=True)}.bsv'
-        # bsv_pkg = package.outpath(env, bsv_name)
-        # reg_name = in_name +'.html'
-        # reg_map = package.outpath(env, reg_name)
-        # json_name = in_name + '.json'
-        # reg_json = package.outpath(env, json_name)
         product = cobble.target.Product(
             env = p_env,
             inputs = ctx.rewrite_sources(sources), # get absolute path for the sources

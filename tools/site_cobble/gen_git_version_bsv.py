@@ -15,12 +15,11 @@ template = Template("""
 // Auto-generated as part of the FPGA build.
 package $package_name;
 
-Bit#(32) version = 'h$version;
-Bit#(32) sha = 'h$sha;
+import Vector::*;
 
-function Bit#(8) byte_index(Bit#(32) value, Integer idx);
-    return value[8*idx + 7:8*idx];
-endfunction
+Vector#(4, Bit#(8)) version = reverse(unpack('h$version));
+Vector#(4, Bit#(8)) sha = reverse(unpack('h$sha));
+
 
 endpackage
 """)
