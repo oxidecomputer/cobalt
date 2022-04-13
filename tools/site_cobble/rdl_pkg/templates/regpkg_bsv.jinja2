@@ -1,6 +1,6 @@
 
 // This is a generated file using the RDL tooling. Do not edit by hand.
-package {{ map_name|lower|to_camel_case(uppercamel=True) }};
+package {{ output_stem }};
 
 import Reserved::*;
 import RegCommon::*;
@@ -72,4 +72,4 @@ instance Bitwise#({{reg_name_camel}});
 endinstance
 
 {% endfor %}
-endpackage: {{ map_name|lower|to_camel_case(uppercamel=True) }}
+endpackage: {{ output_stem }}

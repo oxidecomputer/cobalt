@@ -31,42 +31,50 @@ def to_camel_case(template_string, uppercamel=False):
 def rdl(package, name, *,
         deps = [],
         sources = [],
+        outputs = [],
         local: Delta = {},
         using: Delta = {}):
     
     def mkusing(ctx):
         # get absolute path for the sources
-        sources_i = ctx.rewrite_sources(sources)
         env = ctx.env.subset_require(_ver_keys)
-        # Determine output directory since we need to output some files here
-        # TODO: deal with additional outputs.
+        # Determine output directory since we need to output some files here.
         out_dir = package.outpath(env)
+        output_paths = [str(Path(out_dir) / Path(output)) for output in outputs]
+        symlinks = [package.linkpath(output) for output in outputs]
         p_env = env.derive({
             RDL_ODIR.name:out_dir,
         })
-        in_name = Path(sources_i[0]).stem
-        bsv_name = f'{to_camel_case(in_name.lower(), uppercamel=True)}.bsv'
-        bsv_pkg = package.outpath(env, bsv_name)
-        reg_name = in_name +'.html'
-        reg_map = package.outpath(env, reg_name)
-        json_name = in_name + '.json'
-        reg_json = package.outpath(env, json_name)
+        # in_name = Path(sources_i[0]).stem
+        # bsv_name = f'{to_camel_case(in_name.lower(), uppercamel=True)}.bsv'
+        # bsv_pkg = package.outpath(env, bsv_name)
+        # reg_name = in_name +'.html'
+        # reg_map = package.outpath(env, reg_name)
+        # json_name = in_name + '.json'
+        # reg_json = package.outpath(env, json_name)
         product = cobble.target.Product(
             env = p_env,
-            inputs = sources_i,
-            outputs = ([bsv_pkg], [reg_json, reg_map]),
+            inputs = ctx.rewrite_sources(sources), # get absolute path for the sources
+            outputs = output_paths,
             rule = 'rdl_script')
+        
+        for output, path, link in zip(outputs, output_paths, symlinks):
+            product.expose(path=path, name=str(Path(output).name))
+            product.symlink(target=path, source=link)
 
-        product.expose(path = bsv_pkg, name = bsv_name)
+        our_using = (
+            using, # what the BUILD file requested
+            # Plus,
+            cobble.env.prepare_delta({
+                # Make sure the `latest` symlinks get generated when something
+                # uses this Product.
+                '__implicit__': symlinks
+            })
 
-        product.expose(path = reg_map, name = reg_name)
-        product.symlink(target = reg_map, source = package.linkpath(reg_name))
-
-        product.expose(path = reg_json, name = json_name)
-        product.symlink(target = reg_json, source = package.linkpath(json_name))
+        )
        
 
-        return (using, [product])
+        return (our_using, [product])
 
     return cobble.target.Target(
         package = package,
@@ -79,7 +87,7 @@ def rdl(package, name, *,
 
 ninja_rules = {
     'rdl_script': {
-        'command': ' python3 $rdl_script $in --out-dir $rdl_odir',
+        'command': ' python3 $rdl_script --out-dir $rdl_odir $in $out',
         'description': 'making rdl outputs',
     }
 }

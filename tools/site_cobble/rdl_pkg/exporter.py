@@ -11,7 +11,26 @@ from models import AddrMapListener, Register, Field, ReservedField
 
 from utils import to_camel_case, to_snake_case
 
-from typing import Any, Dict, Union, Optional
+from typing import Any, Dict, Union, Optional, List
+
+
+class TemplatedOutput:
+    known_templates = {
+            '.bsv': 'regpkg_bsv.jinja2',
+            '.html': 'regmap_html.jinja2',
+            '.adoc': 'regmap_adoc.jinja2',
+        }
+    def __init__(self, out_dir: PathLike, out_name: PathLike):
+        self.out_dir = out_dir
+        self.out_name = out_name
+        self.template_name = self.known_templates.get(self.out_name.suffix, None)
+        if self.template_name is None:
+            raise Exception(f'No known template for {str(self.out_name)} specified output')
+
+    @property
+    def output_file(self):
+        return self.out_dir / self.out_name.name
+
 
 class RegBlockExporter:
     def __init__(self, **kwargs):
@@ -35,8 +54,9 @@ class RegBlockExporter:
             self.env.get_template('regmap_html.jinja2'),
             ]
         self.registers = []
+        self.outputs = []
 
-    def export(self, node: Node, path: Union[str, PathLike], name: Optional[str]=None, **kwargs: 'Dict[str, Any]') -> None:
+    def export(self, node: Node, path: Union[str, PathLike], output_names: List[str], **kwargs: 'Dict[str, Any]') -> None:
         """
         Perform the export.
         :param node: Top-level node to export
@@ -50,36 +70,33 @@ class RegBlockExporter:
 
         if isinstance(node, RootNode):
             node = node.top
+
+        if Path(path).is_dir:
+            out_directory = Path(path)
+        else:
+            out_directory = Path(path).parent
+
+         # Collect the requested outputs
+        for name in output_names:
+            self.outputs.append(TemplatedOutput(out_directory, name))
         
         # Walk the model and build a data structure in self.registers
         RDLWalker().walk(node, AddrMapListener(self))
 
-        # Inject some needed context into the Jinja templates
-        my_name = node.inst_name if name is None else name
-        context = {
-            'map_name': my_name,
-            'Register': Register,
-            'Field': Field,
-            'ReservedField': ReservedField,
-            'isinstance': isinstance,
-            'registers': self.registers
-        }
-
+       
+        
         # Loop our templates outputting files as requested.
-        for template in self.templates:
-            if Path(path).is_dir:
-                parent = Path(path)
-            else:
-                parent = Path(path).parent
-            out_path = parent / self._gen_output_name(template.filename, my_name)
-            stream = template.stream(context)
-            stream.dump(str(out_path))
+        for output in self.outputs:
+            # Inject some needed context into the Jinja templates
+            context = {
+                'output_stem': output.out_name.stem,
+                'map_name': node.inst_name,
+                'Register': Register,
+                'Field': Field,
+                'ReservedField': ReservedField,
+                'isinstance': isinstance,
+                'registers': self.registers
+            }
+            stream = self.env.get_template(output.template_name).stream(context)
+            stream.dump(str(output.output_file))
 
-    @staticmethod
-    def _gen_output_name(template_filename, node_name):
-        if "bsv" in template_filename:
-            return f"{to_camel_case(node_name.lower(), uppercamel=True)}.bsv"
-        if "adoc" in template_filename:
-            return f"{node_name.lower()}.adoc"
-        if "html" in template_filename:
-            return f"{node_name.lower()}.html"
