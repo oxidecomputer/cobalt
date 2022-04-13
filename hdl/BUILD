@@ -1,5 +1,26 @@
 # -*- python -*- vim:syntax=python:
 
+# FPGA Version package
+bsv_fpga_version('git_version',
+)
+
+bluespec_library('GitVersion',
+    sources = [
+       ':git_version#git_version.bsv',
+    ],
+    deps = [
+        ':git_version'
+    ]
+)
+
+# Common support scaffolding
+bluespec_library('RegCommon',
+    sources = [
+       'RegCommon.bsv',
+    ],
+)
+
+# Cobalt modules
 bluespec_library('BitSampling',
     sources = [
         'BitSampling.bsv',

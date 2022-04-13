@@ -1,0 +1,75 @@
+
+// This is a generated file using the RDL tooling. Do not edit by hand.
+package {{ output_stem }};
+
+import Reserved::*;
+import RegCommon::*;
+
+{# Loop registers building out BSV packages #}
+{% for register in registers %}
+{% set reserved_cntr = namespace(value=0) %}
+// Register {{register.name}} definitions
+typedef struct {
+    {% for field in register.packed_fields %}
+        {% set field_type = "Bit#({})".format(field.width) %}
+        {% set name =  register.format_field_name(field.name)|lower %}
+        {{ "{:<18}".format(field_type)}} {{ name }};  // bit {{field.bitslice_str()}}    
+    {% endfor %}
+{% set reg_name_camel = register.name|lower|to_camel_case(uppercamel=True) %}
+} {{ reg_name_camel }} deriving (Eq, FShow);
+// Register offsets
+Integer {{register.name|lower|to_camel_case}}Offset = {{register.offset}};
+// Field mask definitions
+    {% for field in register.fields %}
+        {% if not isinstance(field, ReservedField) %}
+    Bit#({{register.width}}) {{register.name|lower|to_camel_case}}{{register.format_field_name(field.name)|lower|to_camel_case(uppercamel=True)}} = 'h{{field.mask}};
+        {% endif %}
+    {% endfor %}
+// Register {{register.name}} custom type-classes
+instance Bits#({{reg_name_camel}}, {{register.width}});
+    function Bit#({{register.width}}) pack ({{reg_name_camel}} r);
+        Bit#({{register.width}}) bts =  'h00;
+        {% for field in register.fields %}
+        {% if not isinstance(field, ReservedField) %}
+        bts[{{field.bitslice_str()}}] = r.{{register.format_field_name(field.name).strip()|lower}};
+        {% endif %}
+        {% endfor %}
+        return bts;
+    endfunction: pack
+    function {{reg_name_camel}} unpack (Bit#({{register.width}}) b);
+        let r = {{reg_name_camel}} {
+        {% for field in register.packed_fields %}
+        {{register.format_field_name(field.name).strip()|lower}}: b[{{field.bitslice_str()}}] {{ ", " if not loop.last else "" }}
+        {% endfor %}
+        };
+        
+        return r;
+    endfunction: unpack
+
+endinstance
+
+instance Bitwise#({{reg_name_camel}});
+    function {{reg_name_camel}} \& ({{reg_name_camel}} i1, {{reg_name_camel}} i2) =
+        unpack(pack(i1) & pack(i2));
+    function {{reg_name_camel}} \| ({{reg_name_camel}} i1, {{reg_name_camel}} i2) =
+        unpack(pack(i1) | pack(i2));
+    function {{reg_name_camel}} \^ ({{reg_name_camel}} i1, {{reg_name_camel}} i2) =
+        unpack(pack(i1) ^ pack(i2));
+    function {{reg_name_camel}} \~^ ({{reg_name_camel}} i1, {{reg_name_camel}} i2) =
+        unpack(pack(i1) ~^ pack(i2));
+    function {{reg_name_camel}} \^~ ({{reg_name_camel}} i1, {{reg_name_camel}} i2) =
+        unpack(pack(i1) ^~ pack(i2));
+    function {{reg_name_camel}} invert ({{reg_name_camel}} i) =
+        unpack(invert(pack(i)));
+    function {{reg_name_camel}} \<< ({{reg_name_camel}} i, t x) =
+        error("Left shift operation is not supported with type {{reg_name_camel}}");
+    function {{reg_name_camel}} \>> ({{reg_name_camel}} i, t x) =
+        error("Right shift operation is not supported with type {{reg_name_camel}}");
+    function Bit#(1) msb ({{reg_name_camel}} i) =
+        error("msb operation is not supported with type {{reg_name_camel}}");
+    function Bit#(1) lsb ({{reg_name_camel}} i) =
+        error("lsb operation is not supported with type {{reg_name_camel}}");
+endinstance
+
+{% endfor %}
+endpackage: {{ output_stem }}
