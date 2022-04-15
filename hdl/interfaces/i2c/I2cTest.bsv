@@ -9,6 +9,8 @@ package I2cTest;
 import I2c::*;
 
 import Assert::*;
+import Connectable::*;
+import GetPut::*;
 import StmtFSM::*;
 
 typedef struct {
@@ -20,56 +22,51 @@ BitControlParams test_params    = BitControlParams {
                                     core_clk_freq: 4000,
                                     scl_freq: 100};
 
+interface Bench;
+    method Bit#(8) read();
+    method Bool error();
+
+    method Action write(Bit#(8) byte_);
+    method Action clear();
+endinterface
+
+module mkBench (Bench);
+    BitControl dut <- mkBitControl(test_params.core_clk_freq, test_params.scl_freq);
+
+    method error = dut.error;
+    method Action clear = dut.clear;
+
+    method Action write(Bit#(8) byte_);
+        dut.send.put(tagged Start);
+        dut.send.put(tagged Write byte_);
+        dut.send.put(tagged Stop);
+    endmethod
+endmodule
+
 (* synthesize *)
-module mkI2cBitControlStartTest (Empty);
-    BitControl bit_ctrl <- mkBitControl(test_params.core_clk_freq, test_params.scl_freq);
+module mkI2cBitControlOneByteWriteTest (Empty);
+    Bench bench <- mkBench();
+
+    Reg#(Bit#(1)) sda_i <- mkReg(0);
+
+    mkConnection(sda_i, bit_ctrl.pins.sda_i);
 
     mkAutoFSM(seq
         // check state coming out of reset
         action
             dynamicAssert(bit_ctrl.pins.scl_o == 1, "SCL should be high");
             dynamicAssert(bit_ctrl.pins.sda_o == 1, "SDA should be high");
-            dynamicAssert(!bit_ctrl.busy, "bit control should not be busy");
         endaction
-        // Generate START condition
-        bit_ctrl.start(True);
-        delay(1);
+        // send Event::Start
+        bit_ctrl.send.put(tagged Start);
+        bit_ctrl.send.put(tagged Write 8'b11010011);
+        bit_ctrl.send.put(tagged Stop);
         action
-            dynamicAssert(bit_ctrl.pins.scl_o == 1, "SCL should be high");
-            dynamicAssert(bit_ctrl.pins.sda_o == 0, "SDA should be low");
-            dynamicAssert(bit_ctrl.busy, "bit control should be busy");
+            let e <- bit_ctrl.receive.get();
+            dynamicAssert(e == tagged Ack, "Expected an ACK");
         endaction
-        delay(10);
-        action
-            dynamicAssert(bit_ctrl.pins.scl_o == 0, "SCL should be low");
-            dynamicAssert(bit_ctrl.pins.sda_o == 0, "SDA should be low");
-            dynamicAssert(!bit_ctrl.busy, "bit control should not be busy");
-        endaction
+        delay(200);
     endseq);
 endmodule
-
-(* synthesize *)
-module mkI2cBitControlStopTest (Empty);
-    BitControl bit_ctrl <- mkBitControl(test_params.core_clk_freq, test_params.scl_freq);
-
-    mkAutoFSM(seq
-        // Generate START condition
-        bit_ctrl.start(True);
-        await(!bit_ctrl.busy);
-        // Generate STOP condition
-        bit_ctrl.stop(True);
-        delay(1);
-        action
-            dynamicAssert(bit_ctrl.pins.scl_o == 1, "SCL should be high");
-            dynamicAssert(bit_ctrl.pins.sda_o == 0, "SDA should be low");
-        endaction
-        delay(10);
-        action
-            dynamicAssert(bit_ctrl.pins.scl_o == 1, "SCL should be high");
-            dynamicAssert(bit_ctrl.pins.sda_o == 1, "SDA should be high");
-        endaction
-    endseq);
-endmodule
-
 
 endpackage: I2cTest

@@ -6,174 +6,240 @@
 
 package I2c;
 
+import BuildVector::*;
 import Connectable::*;
+import FIFO::*;
 import GetPut::*;
 import StmtFSM::*;
+import Vector::*;
 
 import Strobe::*;
 
 import I2cCoreRegs::*;
 
-// If proper tri-stating requires access to device primitives, leave that up to
-// the user to implement for their device. If not, push this down a layer and
-// simple expose SCL/SDA Inout interfaces instead?
-interface I2cPins;
+interface Pins;
     method Bit#(1) scl_o;
+    method Bit#(1) scl_o_en;
     method Action scl_i(Bit#(1) val);
     method Bit#(1) sda_o;
+    method Bit#(1) sda_o_en;
     method Action sda_i(Bit#(1) val);
 endinterface
 
-interface I2cCoreRegisters;
-    method Action scl_prescale(Prescale val);
-    method Action control(Control val);
-    method Action transmit(Transmit val);
-    method Receive receive;
-    method Action command(Command val);
-    method Status status;
-endinterface
+// Using a Vector of Maybe#(Bit#(1)) is a convenient way to not have to track
+// where we are in the shift in/out of a byte, but is a little expensive...
+typedef Vector#(8, Maybe#(Bit#(1))) ShiftBits;
+ShiftBits reset_value = vec(tagged Valid 1, tagged Invalid, tagged Invalid, tagged Invalid,
+                            tagged Invalid, tagged Invalid, tagged Invalid, tagged Invalid);
+// Creating a variant fromMaybe to for use with map() on the ShiftBits type
+function bit_from_maybe(b) = fromMaybe(0, b);
 
-interface I2cCore;
-    interface I2cPins pins;
-    interface I2cCoreRegisters regs;
-endinterface
+typedef union tagged {
+    void Start;
+    void Stop;
+    void Ack;
+    void Nack;
+    Bit#(8) Write;
+    void Read;
+    Bit#(8) ReadData;
+} Event deriving (Bits, Eq, FShow);
 
 typedef enum {
-    Invalid = 0,
-    Idle    = 1,
-    Start   = 2,
-    Read    = 3,
-    Write   = 4,
-    Ack     = 5
-} I2cState deriving (Eq, Bits, FShow);
-
-module mkI2cCore (I2cCore);
-
-    Reg#(I2cState) core_state <- mkReg(Invalid);
-
-    Wire#(Control) regs_ctrl    <- mkWire();
-    Wire#(Command) regs_cmd     <- mkWire();
-    Reg#(Bool) is_start_sent    <- mkReg(False);
-
-    (* fire_when_enabled *)
-    rule do_reset_core (core_state == Invalid);
-        core_state <= Idle;
-    endrule
-
-    (* fire_when_enabled *)
-    rule do_idle_state (core_state == Idle);
-        if (regs_ctrl.en == 1 && regs_cmd.start == 1) begin
-            core_state <= Start;
-        end
-    endrule
-
-    (* fire_when_enabled *)
-    rule do_start_state (core_state == Start);
-        if (is_start_sent) begin
-            if (regs_cmd.read == 1) begin
-                core_state <= Read;
-            end else begin
-                core_state <= Write;
-            end
-        end
-    endrule
-
-    (* fire_when_enabled *)
-    rule do_read_state (core_state == Read);
-
-    endrule
-
-    (* fire_when_enabled *)
-    rule do_write_state (core_state == Write);
-
-    endrule
-
-    (* fire_when_enabled *)
-    rule do_ack_state (core_state == Ack);
-
-    endrule
-
-    interface I2cCoreRegisters regs;
-        method Action control(Control val)  = regs_ctrl._write(val);
-        method Action command(Command val)  = regs_cmd._write(val);
-    endinterface
-
-endmodule
+    AwaitStart      = 0,
+    TransmitStart   = 1,
+    AwaitCommand    = 2,
+    TransmitByte    = 3,
+    ReceiveAck      = 4,
+    ReceiveByte     = 5,
+    TransmitStop    = 6,
+    TransmitNack    = 7
+} State deriving (Eq, Bits, FShow);
 
 interface BitControl;
-    interface I2cPins pins;
-    interface Put#(Bit#(8)) wr_data;
-    interface Get#(Bit#(8)) rd_data;
-    method Action start(Bool val);
-    method Action stop(Bool val);
-    method Action write(Bool val);
-    method Action read(Bool val);
-    method Bool busy;
+    interface Pins pins;
+    interface Put#(Event) send;
+    interface Get#(Event) receive;
+    method Bool error();
+    method Action clear();
 endinterface
 
 module mkBitControl #(Integer core_clk_freq, Integer i2c_scl_freq) (BitControl);
-
     // generate strobe to toggle scl at a desired period
     // ex: 50MHz / 100KHz / 2 = 250
     Integer scl_half_period_limit = core_clk_freq / i2c_scl_freq / 2;
 
-    Strobe#(8) scl_toggle_strobe <- mkLimitStrobe(1, scl_half_period_limit, 0);
+    // Counts to scl_half_period_limit and then pulses
+    Strobe#(8) scl_toggle_strobe    <- mkLimitStrobe(1, scl_half_period_limit, 0);
 
-    Reg#(Bool) in_transaction <- mkReg(False);
+    // Counts the number of core_clk periods between the scl/sda transitions for
+    // START and STOP conditions
+    Strobe#(5) delay_strobe <- mkLimitStrobe(1, 20, 0);
 
-    Reg#(Bit#(1)) scl_  <- mkReg(1);
-    Reg#(Bit#(1)) sda_  <- mkReg(1);
-    Wire#(Bool) busy_   <- mkWire();
+    // Buffers for Events
+    FIFO#(Event) incoming_events   <- mkFIFO1();
+    FIFO#(Event) outgoing_events    <- mkFIFO1();
 
-    PulseWire start_        <- mkPulseWire();
-    PulseWire stop_         <- mkPulseWire();
+    Reg#(Bit#(1))   scl_out         <- mkReg(1);
+    Reg#(Bit#(1))   scl_out_next    <- mkReg(1);
+    PulseWire       scl_redge       <- mkPulseWire();
 
-    FSM gen_start <- mkFSMWithPred(seq
-        sda_ <= 0;
-        delay(10);
-        scl_ <= 0;
-    endseq, !scl_toggle_strobe);
+    Reg#(Bit#(1))   sda_out     <- mkReg(1);
+    Reg#(Bit#(1))   sda_out_en  <- mkReg(1);
+    Wire#(Bit#(1))  sda_in      <- mkWire();
 
-    FSM gen_stop <- mkFSMWithPred(seq
-        scl_ <= 1;
-        delay(10);
-        sda_ <= 1;
-    endseq, !scl_toggle_strobe);
+    Reg#(State) state           <- mkReg(AwaitStart);
+    Reg#(Bool) scl_active       <- mkReg(False);
+    Reg#(ShiftBits) shift_bits  <- mkReg(reset_value);
 
     (* fire_when_enabled *)
-    rule do_tick_scl_toggle_strobe (in_transaction);
+    rule do_tick_scl_toggle(scl_active);
         scl_toggle_strobe.send();
     endrule
 
     (* fire_when_enabled *)
-    rule do_scl_toggle_counter (scl_toggle_strobe);
-        scl_ <= ~scl_;
+    rule do_scl_toggle(scl_toggle_strobe);
+        scl_out_next    <= ~scl_out;
+        scl_out         <= scl_out_next;
+
+        if (scl_out_next == 1 && scl_out == 0) begin
+            scl_redge.send();
+        end
     endrule
 
-    (* fire_when_enabled, no_implicit_conditions *)
-    rule do_busy;
-        busy_ <= !gen_start.done() || !gen_stop.done();
+    rule do_next;
+        // Poll fifo for an event. If nothing is there, the rule will not fire.
+        let e = incoming_events.first;
+
+        // Handle events given the state
+        case (tuple2(state, e)) matches
+            {AwaitStart, tagged Start}: begin
+                state <= TransmitStart;
+                incoming_events.deq();
+            end
+
+            {TransmitStart, .*}: begin
+                sda_out_en  <= 1;
+                sda_out     <= 0;
+                scl_active  <= True;
+                state       <= AwaitCommand;
+            end
+
+            {AwaitCommand, tagged Write .byte_}: begin
+                shift_bits <= map(tagged Valid, unpack(byte_));
+                state   <= TransmitByte;
+            end
+
+            {TransmitByte, tagged Write .byte_}: begin
+                if (scl_redge) begin
+                    case (head(shift_bits)) matches
+                        tagged Valid .bit_: begin
+                            sda_out <= bit_;
+                            shift_bits <= shiftOutFrom0(tagged Invalid, shift_bits, 1);
+                        end
+
+                        tagged Invalid: begin
+                            state   <= ReceiveAck;
+                        end
+                    endcase
+                end
+            end
+
+            {ReceiveAck, tagged Write .byte_}: begin
+                sda_out_en  <= 0;
+                if (scl_redge) begin
+                    state   <= AwaitCommand;
+                    incoming_events.deq();
+                    if (sda_in == 0) begin
+                        outgoing_events.enq(tagged Ack);
+                    end else begin
+                        outgoing_events.enq(tagged Nack);
+                    end
+                end
+            end
+
+            {AwaitCommand, tagged Read}: begin
+                sda_out_en  <= 0;
+                shift_bits  <= reset_value;
+                state   <= ReceiveByte;
+            end
+
+            {ReceiveByte, tagged Read}: begin
+                if (scl_redge) begin
+                    case (last(shift_bits)) matches
+                        tagged Valid .bit_: begin
+                            state   <= TransmitNack;
+                            outgoing_events.enq(tagged ReadData pack(map(bit_from_maybe, shift_bits)));
+                        end
+
+                        tagged Invalid: begin
+                            shift_bits <= shiftInAt0(shift_bits, tagged Valid sda_in);
+                        end
+                    endcase
+                end
+            end
+
+            {TransmitNack, tagged Read}: begin
+                sda_out_en  <= 1;
+                sda_out     <= 1;
+                state       <= AwaitCommand;
+            end
+
+            {AwaitCommand, tagged Stop}: begin
+                if (scl_redge) begin
+                    scl_active  <= False;
+                    state       <= TransmitStop;
+                end
+            end
+
+            {TransmitStop, tagged Stop}: begin
+                sda_out_en  <= 1;
+                sda_out     <= 1;
+                state       <= AwaitStart;
+                incoming_events.deq();
+            end
+        endcase
     endrule
 
-    (* fire_when_enabled *)
-    rule do_start (start_ && !stop_ && !busy_);
-        gen_start.start();
-    endrule
-
-    (* fire_when_enabled *)
-    rule do_stop (stop_ && !start_ && !busy_);
-        gen_stop.start();
-    endrule
-
-    method Action start(Bool val)   = start_.send;
-    method Action stop(Bool val)    = stop_.send;
-
-    method busy = busy_;
-
-    interface I2cPins pins;
-        method scl_o = scl_;
-        method sda_o = sda_;
+    interface Pins pins;
+        method scl_o    = scl_out;
+        method scl_o_en = 1;
+        method sda_o    = sda_out;
+        method sda_o_en = sda_out_en;
+        method sda_i    = sda_in._write;
     endinterface
+
+    interface Put send;
+        method put = incoming_events.enq;
+    endinterface
+    interface Get receive = toGet(outgoing_events);
+
+endmodule
+
+// Simulation Interface for a basic I2C peripheral
+// Since Bluesim does not support tri-states/inouts, take the output_en
+// from the controller and use it to gate the peripheral output
+interface I2CPeripheralModel;
+    method Action scl_i(Bit#(1) val);
+    method Bit#(1) sda_o;
+    method Action sda_i_en(Bit#(1) sda_i_en);
+    method Action sda_i(Bit#(1) val);
+
+    interface Put#(Event) send;
+    interface Get#(Event) receive;
+    method Action nack_next();
+endinterface
+
+module mkI2CPeripheralModel(I2CPeripheralModel);
+    Reg#(Bit#(1)) sda_out       <- mkReg(0);
+    Reg#(Bit#(1)) sda_in        <- mkReg(0);
+    Wire#(Bit#(1)) sda_in_en    <- mkWire();
+    Wire#(Bit#(1)) scl_in       <- mkWire();
+
+
+    method Action scl_i(Bit#(1) val) = scl_in._write(val);
+    method Action sda_i(Bit#(1) val) = sda_in._write(val);
+    method Action sda_i_en(Bit#(1) val) = sda_in_en._write(val);
+    method sda_o = sda_out;
 
 endmodule
 
