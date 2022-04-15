@@ -31,7 +31,7 @@ typedef struct {
 } SpiRx deriving (Bits, Eq);
 
 typedef enum {
-    CMD, 
+    OPCODE, 
     ADDR1, 
     ADDR2, 
     DO_READ, 
@@ -51,7 +51,7 @@ typedef enum {
 //
 module mkSpiRegDecode(SpiDecodeIF);
     // Registers
-    Reg#(State) state <- mkReg(CMD);
+    Reg#(State) state <- mkReg(OPCODE);
     Reg#(Bit#(16)) address <- mkRegU();
     Reg#(RegOps) operation <- mkRegU();
     Reg#(Maybe#(Bit#(8))) reg_read_data <- mkReg(tagged Invalid);
@@ -64,9 +64,9 @@ module mkSpiRegDecode(SpiDecodeIF);
     let my_data = fromMaybe(?, data.wget());
 
     // Store first byte which is the opcode
-    rule store_op (state == CMD);
+    rule store_op (state == OPCODE);
         if (spi_deselected) begin
-            state <= CMD;
+            state <= OPCODE;
         end else if (got_data) begin
             // Turn opcode byte into an actual opcode
             operation <= unpack(truncate(my_data));
@@ -77,21 +77,21 @@ module mkSpiRegDecode(SpiDecodeIF);
     // Store second byte which is the MSB of address
     rule do_addr1 (state == ADDR1);
         if (spi_deselected) begin
-            state <= CMD;
+            state <= OPCODE;
         end else if (got_data) begin
             state <= ADDR2;
             address <= {pack(my_data), address[7:0]};
         end
     endrule
 
-    // Store thrid byte which is the LSB of address
+    // Store third byte which is the LSB of address
     // If we're doing a read, we need to prime the pump by fetching a read
     // at this address immediately since we'll need to shift it out starting
     // at the next SPI clock cycle
     rule do_addr2 (state == ADDR2);
         let next_state = operation == READ ? DO_READ : WRITE_WAIT;
         if (spi_deselected) begin
-            state <= CMD;
+            state <= OPCODE;
         end else if (got_data) begin
             state <= next_state;
             address <= {address[15:8], pack(my_data)};
@@ -105,7 +105,7 @@ module mkSpiRegDecode(SpiDecodeIF);
     // of reads or writes.
     rule do_register_request (state == DO_READ || state == DO_WRITE);
         if (spi_deselected) begin
-            state <= CMD;
+            state <= OPCODE;
         end else begin
             let next_state = operation == READ ? READ_WAIT : WRITE_WAIT;
             state <= next_state;
@@ -122,7 +122,7 @@ module mkSpiRegDecode(SpiDecodeIF);
     rule do_wait (state == READ_WAIT || state == WRITE_WAIT);
         let next_state = operation == READ ? DO_READ : DO_WRITE;
         if (spi_deselected) begin
-            state <= CMD;
+            state <= OPCODE;
         end else if (got_data) begin
             state <= next_state;
             // We got data while waiting. If this is a read, we don't care what happens 
@@ -286,7 +286,7 @@ module mkSpiDecodeTest(Empty);
     // Simple function to do spi wites (or bitset, bitclears)
     function Stmt do_write(RegOps opcode, Bit#(16) address, Bit#(8) data);
         return seq
-            decode.spi_byte.request.put(make_byte(zeroExtend(pack(opcode)), False));  // CMD
+            decode.spi_byte.request.put(make_byte(zeroExtend(pack(opcode)), False));  // OPCODE
             decode.spi_byte.request.put(make_byte(address[15:8], False));  // Addr1
             decode.spi_byte.request.put(make_byte(address[7:0], False));  // Addr2
             decode.spi_byte.request.put(make_byte(data, False)); // Data word
@@ -297,12 +297,12 @@ module mkSpiDecodeTest(Empty);
     // Simple function to test bitset
     function Stmt do_bitset();
         return seq
-            decode.spi_byte.request.put(make_byte(zeroExtend(pack(WRITE)), False));  // CMD
+            decode.spi_byte.request.put(make_byte(zeroExtend(pack(WRITE)), False));  // OPCODE
             decode.spi_byte.request.put(make_byte(0, False));  // Addr1
             decode.spi_byte.request.put(make_byte(0, False));  // Addr2
             decode.spi_byte.request.put(make_byte('h05, False)); // Data word
             decode.spi_byte.request.put(SpiRx {spi_rx_byte: tagged Invalid, done: True});
-            decode.spi_byte.request.put(make_byte(zeroExtend(pack(BITSET)), False));  // CMD
+            decode.spi_byte.request.put(make_byte(zeroExtend(pack(BITSET)), False));  // OPCODE
             decode.spi_byte.request.put(make_byte(0, False));  // Addr1
             decode.spi_byte.request.put(make_byte(0, False));  // Addr2
             decode.spi_byte.request.put(make_byte('h50, False)); // Data word
@@ -312,12 +312,12 @@ module mkSpiDecodeTest(Empty);
     // Simple function to test bitclear
     function Stmt do_bitclear();
         return seq
-            decode.spi_byte.request.put(make_byte(zeroExtend(pack(WRITE)), False));  // CMD
+            decode.spi_byte.request.put(make_byte(zeroExtend(pack(WRITE)), False));  // OPCODE
             decode.spi_byte.request.put(make_byte(0, False));  // Addr1
             decode.spi_byte.request.put(make_byte(0, False));  // Addr2
             decode.spi_byte.request.put(make_byte('h05, False)); // Data word
             decode.spi_byte.request.put(SpiRx {spi_rx_byte: tagged Invalid, done: True});
-            decode.spi_byte.request.put(make_byte(zeroExtend(pack(BITCLEAR)), False));  // CMD
+            decode.spi_byte.request.put(make_byte(zeroExtend(pack(BITCLEAR)), False));  // OPCODE
             decode.spi_byte.request.put(make_byte(0, False));  // Addr1
             decode.spi_byte.request.put(make_byte(0, False));  // Addr2
             decode.spi_byte.request.put(make_byte('h05, False)); // Data word
@@ -327,13 +327,13 @@ module mkSpiDecodeTest(Empty);
 
     function Stmt do_read();
         return seq
-             decode.spi_byte.request.put(make_byte(zeroExtend(pack(WRITE)), False));  // CMD
+             decode.spi_byte.request.put(make_byte(zeroExtend(pack(WRITE)), False));  // OPCODE
             decode.spi_byte.request.put(make_byte(0, False));  // Addr1
             decode.spi_byte.request.put(make_byte(0, False));  // Addr2
             decode.spi_byte.request.put(make_byte('h05, False)); // Data word
             decode.spi_byte.request.put(SpiRx {spi_rx_byte: tagged Invalid, done: True});
 
-            decode.spi_byte.request.put(make_byte(zeroExtend(pack(READ)), False));  // CMD
+            decode.spi_byte.request.put(make_byte(zeroExtend(pack(READ)), False));  // OPCODE
             decode.spi_byte.request.put(make_byte(0, False));  // Addr1
             decode.spi_byte.request.put(make_byte(0, False));  // Addr2
             decode.spi_byte.request.put(make_byte(0, False)); // Data word
