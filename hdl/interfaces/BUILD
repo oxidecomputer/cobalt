@@ -37,3 +37,26 @@ bluesim_tests('UARTTests',
     deps = [
         ':UART',
     ])
+
+#
+# SPI package and unit tests.
+#
+
+bluespec_library('SPI',
+    sources = [
+        'SPI.bsv',
+    ],
+    deps = [
+        '//hdl:RegCommon',
+    ])
+
+bluesim_tests('SPITests',
+    env = 'bluesim_default',
+    suite = 'SPI.bsv',
+    modules = [
+        'mkSpiDecodeTest',
+        'mkSpiPhyTest',
+    ],
+    deps = [
+        ':SPI',
+    ])

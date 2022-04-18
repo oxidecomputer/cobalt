@@ -2,9 +2,6 @@
 // This is a generated file using the RDL tooling. Do not edit by hand.
 package {{ output_stem }};
 
-import Reserved::*;
-import RegCommon::*;
-
 {# Loop registers building out BSV packages #}
 {% for register in registers %}
 {% set reserved_cntr = namespace(value=0) %}
