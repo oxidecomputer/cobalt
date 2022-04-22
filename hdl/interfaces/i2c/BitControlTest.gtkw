@@ -1,15 +1,15 @@
 [*]
 [*] GTKWave Analyzer v3.3.100 (w)1999-2019 BSI
-[*] Fri Apr 22 16:30:45 2022
+[*] Fri Apr 22 21:53:51 2022
 [*]
 [dumpfile] "\\wsl$\Ubuntu-20.04\home\aaron\Oxide\git\cobalt\build\vcd\I2cTests_mkI2cBitControlOneByteWriteTest.vcd"
-[dumpfile_mtime] "Fri Apr 22 16:26:20 2022"
-[dumpfile_size] 28233
+[dumpfile_mtime] "Fri Apr 22 21:53:13 2022"
+[dumpfile_size] 106097
 [savefile] "\\wsl$\Ubuntu-20.04\home\aaron\Oxide\git\cobalt\hdl\interfaces\i2c\BitControlTest.gtkw"
 [timestart] 0
 [size] 1738 1368
 [pos] -1 -1
-*-10.737244 665 8860 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-12.517515 10810 8860 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] main.
 [treeopen] main.top.
 [sst_width] 348
@@ -17,18 +17,44 @@
 [sst_expanded] 1
 [sst_vpaned_height] 899
 @200
--DUT Wires
+-BitControl
+-Wires
+@29
+main.top.bench_dut_sda_out
 @28
 main.top.bench_dut_scl_out
 main.top.bench_dut_sda_in
-main.top.bench_dut_sda_out
 main.top.bench_dut_sda_out_en
 @200
 -State
 @24
 main.top.bench_dut_state[2:0]
-@23
+@c00022
 main.top.bench_dut_shift_bits[15:0]
+@28
+(0)main.top.bench_dut_shift_bits[15:0]
+(1)main.top.bench_dut_shift_bits[15:0]
+(2)main.top.bench_dut_shift_bits[15:0]
+(3)main.top.bench_dut_shift_bits[15:0]
+(4)main.top.bench_dut_shift_bits[15:0]
+(5)main.top.bench_dut_shift_bits[15:0]
+(6)main.top.bench_dut_shift_bits[15:0]
+(7)main.top.bench_dut_shift_bits[15:0]
+(8)main.top.bench_dut_shift_bits[15:0]
+(9)main.top.bench_dut_shift_bits[15:0]
+(10)main.top.bench_dut_shift_bits[15:0]
+(11)main.top.bench_dut_shift_bits[15:0]
+(12)main.top.bench_dut_shift_bits[15:0]
+(13)main.top.bench_dut_shift_bits[15:0]
+(14)main.top.bench_dut_shift_bits[15:0]
+(15)main.top.bench_dut_shift_bits[15:0]
+@1401200
+-group_end
+@200
+-Control
+@28
+main.top.bench_dut_scl_fedge
+main.top.bench_dut_scl_redge
 @200
 -Incoming Event
 @22
@@ -45,14 +71,13 @@ main.top.bench_dut_outgoing_events.D_OUT[10:0]
 @28
 main.top.bench_dut_outgoing_events.ENQ
 main.top.bench_dut_outgoing_events.DEQ
-@22
-main.top.bench_dut_delay_strobe_count[4:0]
-main.top.bench_wr_data[7:0]
-@28
-main.top.bench_periph_sda_out
-main.top.bench_periph_sda_in_en
 @200
--Peripheral Wires
+-
+-I2CPeripheralModel
+@28
+main.top.bench_periph_address[6:0]
+@200
+-Wires
 @28
 main.top.bench_periph_scl_in
 main.top.bench_periph_sda_in
@@ -60,13 +85,50 @@ main.top.bench_periph_sda_in_en
 main.top.bench_periph_sda_out
 @200
 -State
-@22
-main.top.bench_periph_address[6:0]
-@28
-main.top.bench_periph_do_nack
-main.top.bench_periph_do_read
+@24
 main.top.bench_periph_state[2:0]
-@22
+@c00022
 main.top.bench_periph_shift_bits[15:0]
+@28
+(0)main.top.bench_periph_shift_bits[15:0]
+(1)main.top.bench_periph_shift_bits[15:0]
+(2)main.top.bench_periph_shift_bits[15:0]
+(3)main.top.bench_periph_shift_bits[15:0]
+(4)main.top.bench_periph_shift_bits[15:0]
+(5)main.top.bench_periph_shift_bits[15:0]
+(6)main.top.bench_periph_shift_bits[15:0]
+(7)main.top.bench_periph_shift_bits[15:0]
+(8)main.top.bench_periph_shift_bits[15:0]
+(9)main.top.bench_periph_shift_bits[15:0]
+(10)main.top.bench_periph_shift_bits[15:0]
+(11)main.top.bench_periph_shift_bits[15:0]
+(12)main.top.bench_periph_shift_bits[15:0]
+(13)main.top.bench_periph_shift_bits[15:0]
+(14)main.top.bench_periph_shift_bits[15:0]
+(15)main.top.bench_periph_shift_bits[15:0]
+@1401200
+-group_end
+@200
+-Control
+@28
+main.top.bench_periph_do_read
+main.top.bench_periph_scl_redge
+main.top.bench_periph_do_nack
+@200
+-Incoming Event
+@22
+main.top.bench_periph_incoming_events.D_IN[10:0]
+main.top.bench_periph_incoming_events.D_OUT[10:0]
+@28
+main.top.bench_periph_incoming_events.ENQ
+main.top.bench_periph_incoming_events.DEQ
+@200
+-Outgoing Event
+@22
+main.top.bench_periph_outgoing_events.D_IN[10:0]
+main.top.bench_periph_outgoing_events.D_OUT[10:0]
+@28
+main.top.bench_periph_outgoing_events.ENQ
+main.top.bench_periph_outgoing_events.DEQ
 [pattern_trace] 1
 [pattern_trace] 0

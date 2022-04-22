@@ -22,11 +22,20 @@ BitControlParams test_params    = BitControlParams {
                                     scl_freq: 100,
                                     peripheral_addr: 7'b1010110};
 
+typedef struct {
+    Bit#(8) reg_addr;
+    Bit#(8) data;
+} WriteByte deriving (Bits, Eq, FShow);
+
+WriteByte default_write_byte = WriteByte {
+                                reg_addr: 8'hFF,
+                                data: 8'hFF};
+
 interface Bench;
     method Bool busy();
 
-    method Bit#(8) read();
-    method Action write(Bit#(8) byte_);
+    method Action read(Bit#(8) reg_addr);
+    method Action write(WriteByte cmd);
     method Bool error();
     method Action clear();
 endinterface
@@ -40,19 +49,54 @@ module mkBench (Bench);
     mkConnection(dut.pins.sda_o_en, periph.sda_i_en);
     mkConnection(dut.pins.sda_i, periph.sda_o);
 
-    Reg#(Bit#(8)) wr_data   <- mkReg(0);
-    Reg#(Bit#(8)) rd_data   <- mkReg(0);
+    Reg#(Bit#(8)) addr_write    <- mkReg({test_params.peripheral_addr, 1'b0});
+    Reg#(Bit#(8)) addr_read     <- mkReg({test_params.peripheral_addr, 1'b1});
+    Reg#(WriteByte) wr_byte_cmd <- mkReg(default_write_byte);
 
     FSM write_seq <- mkFSM(seq
         dut.send.put(tagged Start);
-        dut.send.put(tagged Write wr_data);
-        dut.send.put(tagged Stop);
+        dut.send.put(tagged Write addr_write);
+        action
+            let e <- periph.receive.get();
+            dynamicAssert (e == tagged ReceivedStart, "Expected to receive START");
+        endaction
+        action
+            let e <- periph.receive.get();
+            dynamicAssert (e == tagged AddressMatch, "Expected address to match");
+        endaction
+        action
+            let e <- dut.receive.get();
+            dynamicAssert (e == tagged Ack, "Expected an ACK on the command");
+        endaction
+        dut.send.put(tagged Write wr_byte_cmd.reg_addr);
+        // action
+        //     let e <- periph.receive.get();
+        //     dynamicAssert (e == tagged ReceivedData wr_byte_cmd.reg_addr, "Expected to receive reg addr that was sent");
+        // endaction
+        // action
+        //     let e <- dut.receive.get();
+        //     dynamicAssert (e == tagged Ack, "Expected an ACK on the data");
+        // endaction
+        // dut.send.put(tagged Write wr_byte_cmd.data);
+        // action
+        //     let e <- periph.receive.get();
+        //     dynamicAssert (e == tagged ReceivedData wr_byte_cmd.data, "Expected to receive data that was sent");
+        // endaction
+        // action
+        //     let e <- dut.receive.get();
+        //     dynamicAssert (e == tagged Ack, "Expected an ACK on the data");
+        // endaction
+        // dut.send.put(tagged Stop);
+        // action
+        //     let e <- periph.receive.get();
+        //     dynamicAssert (e == tagged ReceivedStop, "Expected to receive STOP");
+        // endaction
     endseq);
 
     method busy = !write_seq.done();
 
-    method Action write(Bit#(8) byte_);
-        wr_data <= byte_;
+    method Action write(WriteByte cmd);
+        wr_byte_cmd <= cmd;
         write_seq.start();
     endmethod
 
@@ -63,28 +107,16 @@ endmodule
 (* synthesize *)
 module mkI2cBitControlOneByteWriteTest (Empty);
     Bench bench <- mkBench();
-    // BitControl dut <- mkBitControl(test_params.core_clk_freq, test_params.scl_freq);
 
-    // Reg#(Bit#(1)) sda_i <- mkReg(0);
-
-    // mkConnection(sda_i, bench.dut.pins.sda_i);
+    WriteByte payload = WriteByte {
+        reg_addr: 8'hA5,
+        data: 8'h3C
+    };
 
     mkAutoFSM(seq
-        // check state coming out of reset
-        // action
-        //     dynamicAssert(bench.dut.pins.scl_o == 1, "SCL should be high");
-        //     dynamicAssert(bench.dut.pins.sda_o == 1, "SDA should be high");
-        // endaction
-        // send Event::Start
-        bench.write(8'b10101100);
+        bench.write(payload);
         await(!bench.busy());
-        // bench.dut.send.put(tagged Write 8'b11010011);
-        // bench.dut.send.put(tagged Stop);
-        // action
-        //     let e <- bench.dut.receive.get();
-        //     dynamicAssert(e == tagged Ack, "Expected an ACK");
-        // endaction
-        delay(20);
+        delay(500);
     endseq);
 endmodule
 
