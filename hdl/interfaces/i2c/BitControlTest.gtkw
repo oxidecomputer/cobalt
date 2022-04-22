@@ -1,15 +1,15 @@
 [*]
 [*] GTKWave Analyzer v3.3.100 (w)1999-2019 BSI
-[*] Fri Apr 22 21:53:51 2022
+[*] Fri Apr 22 22:44:34 2022
 [*]
 [dumpfile] "\\wsl$\Ubuntu-20.04\home\aaron\Oxide\git\cobalt\build\vcd\I2cTests_mkI2cBitControlOneByteWriteTest.vcd"
-[dumpfile_mtime] "Fri Apr 22 21:53:13 2022"
-[dumpfile_size] 106097
+[dumpfile_mtime] "Fri Apr 22 22:39:50 2022"
+[dumpfile_size] 34160
 [savefile] "\\wsl$\Ubuntu-20.04\home\aaron\Oxide\git\cobalt\hdl\interfaces\i2c\BitControlTest.gtkw"
 [timestart] 0
 [size] 1738 1368
 [pos] -1 -1
-*-12.517515 10810 8860 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-10.942743 9180 8860 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] main.
 [treeopen] main.top.
 [sst_width] 348
@@ -19,9 +19,8 @@
 @200
 -BitControl
 -Wires
-@29
-main.top.bench_dut_sda_out
 @28
+main.top.bench_dut_sda_out
 main.top.bench_dut_scl_out
 main.top.bench_dut_sda_in
 main.top.bench_dut_sda_out_en
@@ -110,8 +109,9 @@ main.top.bench_periph_shift_bits[15:0]
 -group_end
 @200
 -Control
-@28
+@29
 main.top.bench_periph_do_read
+@28
 main.top.bench_periph_scl_redge
 main.top.bench_periph_do_nack
 @200
