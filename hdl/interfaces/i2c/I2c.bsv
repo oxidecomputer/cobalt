@@ -1,5 +1,3 @@
-// Copyright 2022 Oxide Computer Company
-//
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -29,10 +27,10 @@ endinterface
 // Using a Vector of Maybe#(Bit#(1)) is a convenient way to not have to track
 // where we are in the shift in/out of a byte, but is a little expensive...
 typedef Vector#(8, Maybe#(Bit#(1))) ShiftBits;
-ShiftBits reset_value = vec(tagged Valid 1, tagged Invalid, tagged Invalid, tagged Invalid,
+ShiftBits reset_value = vec(tagged Invalid, tagged Invalid, tagged Invalid, tagged Invalid,
                             tagged Invalid, tagged Invalid, tagged Invalid, tagged Invalid);
 // Creating a variant fromMaybe to for use with map() on the ShiftBits type
-function bit_from_maybe(b) = fromMaybe(0, b);
+function Bit#(1) bit_from_maybe(Maybe#(Bit#(1)) b) = fromMaybe(0, b);
 
 typedef union tagged {
     void Start;
@@ -63,6 +61,10 @@ interface BitControl;
     method Action clear();
 endinterface
 
+// I2C Bit Controller
+// This initial implementation is very rigid and naive, be some details:
+// START condition to first rising edge of SCL is 1/2 SCL period
+// SDA switches to next value at falling edge of SCL
 module mkBitControl #(Integer core_clk_freq, Integer i2c_scl_freq) (BitControl);
     // generate strobe to toggle scl at a desired period
     // ex: 50MHz / 100KHz / 2 = 250
@@ -73,7 +75,7 @@ module mkBitControl #(Integer core_clk_freq, Integer i2c_scl_freq) (BitControl);
 
     // Counts the number of core_clk periods between the scl/sda transitions for
     // START and STOP conditions
-    Strobe#(5) delay_strobe <- mkLimitStrobe(1, 20, 0);
+    // Strobe#(5) delay_strobe <- mkLimitStrobe(1, 20, 0);
 
     // Buffers for Events
     FIFO#(Event) incoming_events   <- mkFIFO1();
@@ -82,6 +84,7 @@ module mkBitControl #(Integer core_clk_freq, Integer i2c_scl_freq) (BitControl);
     Reg#(Bit#(1))   scl_out         <- mkReg(1);
     Reg#(Bit#(1))   scl_out_next    <- mkReg(1);
     PulseWire       scl_redge       <- mkPulseWire();
+    PulseWire       scl_fedge       <- mkPulseWire();
 
     Reg#(Bit#(1))   sda_out     <- mkReg(1);
     Reg#(Bit#(1))   sda_out_en  <- mkReg(1);
@@ -104,6 +107,10 @@ module mkBitControl #(Integer core_clk_freq, Integer i2c_scl_freq) (BitControl);
         if (scl_out_next == 1 && scl_out == 0) begin
             scl_redge.send();
         end
+
+        if (scl_out_next == 0 && scl_out == 1) begin
+            scl_fedge.send();
+        end
     endrule
 
     rule do_next;
@@ -121,7 +128,9 @@ module mkBitControl #(Integer core_clk_freq, Integer i2c_scl_freq) (BitControl);
                 sda_out_en  <= 1;
                 sda_out     <= 0;
                 scl_active  <= True;
-                state       <= AwaitCommand;
+                // if (scl_fedge) begin
+                    state       <= AwaitCommand;
+                // end
             end
 
             {AwaitCommand, tagged Write .byte_}: begin
@@ -130,11 +139,11 @@ module mkBitControl #(Integer core_clk_freq, Integer i2c_scl_freq) (BitControl);
             end
 
             {TransmitByte, tagged Write .byte_}: begin
-                if (scl_redge) begin
-                    case (head(shift_bits)) matches
+                if (scl_fedge) begin
+                    case (last(shift_bits)) matches
                         tagged Valid .bit_: begin
                             sda_out <= bit_;
-                            shift_bits <= shiftOutFrom0(tagged Invalid, shift_bits, 1);
+                            shift_bits <= shiftOutFromN(tagged Invalid, shift_bits, 1);
                         end
 
                         tagged Invalid: begin
@@ -219,27 +228,92 @@ endmodule
 // Since Bluesim does not support tri-states/inouts, take the output_en
 // from the controller and use it to gate the peripheral output
 interface I2CPeripheralModel;
-    method Action scl_i(Bit#(1) val);
+    method Action scl_i(Bit#(1) scl_i_next);
     method Bit#(1) sda_o;
     method Action sda_i_en(Bit#(1) sda_i_en);
-    method Action sda_i(Bit#(1) val);
+    method Action sda_i(Bit#(1) sda_i_next);
 
     interface Put#(Event) send;
     interface Get#(Event) receive;
     method Action nack_next();
 endinterface
 
-module mkI2CPeripheralModel(I2CPeripheralModel);
-    Reg#(Bit#(1)) sda_out       <- mkReg(0);
+typedef enum {
+    AwaitStart      = 0,
+    ReceiveAddress  = 1,
+    ReceiveByte     = 2,
+    TransmitRead    = 3,
+    ReceiveWrite    = 4,
+    TransmitAck     = 5
+} ModelState deriving (Eq, Bits, FShow);
+
+module mkI2CPeripheralModel #(Bit#(7) i2c_address) (I2CPeripheralModel);
+    Reg#(Bit#(7)) address   <- mkReg(i2c_address);
+
+    Reg#(Bit#(1)) sda_out       <- mkReg(1);
     Reg#(Bit#(1)) sda_in        <- mkReg(0);
-    Wire#(Bit#(1)) sda_in_en    <- mkWire();
-    Wire#(Bit#(1)) scl_in       <- mkWire();
+    Reg#(Bit#(1)) sda_in_en    <- mkReg(1);
+    Reg#(Bit#(1)) scl_in       <- mkReg(0);
 
+    Reg#(ModelState) state  <- mkReg(AwaitStart);
+    PulseWire scl_redge     <- mkPulseWire();
+    Reg#(ShiftBits) shift_bits  <- mkReg(reset_value);
+    Reg#(Bool) do_read      <- mkReg(False);
+    Reg#(Bool) do_nack      <- mkReg(False);
 
-    method Action scl_i(Bit#(1) val) = scl_in._write(val);
-    method Action sda_i(Bit#(1) val) = sda_in._write(val);
-    method Action sda_i_en(Bit#(1) val) = sda_in_en._write(val);
-    method sda_o = sda_out;
+    (* fire_when_enabled *)
+    rule do_await_start (state == AwaitStart);
+        if (sda_in == 0 && scl_in == 1) begin
+            state <= ReceiveAddress;
+        end
+    endrule
+
+    (* fire_when_enabled *)
+    rule do_receive_command (state == ReceiveAddress);
+        if (scl_redge) begin
+            case (last(shift_bits)) matches
+                tagged Valid .bit_: begin
+                    shift_bits  <= reset_value;
+                    let bits = pack(map(bit_from_maybe, shift_bits));
+                    if (bits[7:1] == address) begin
+                        do_read <= bit_ == 1;
+                        state   <= TransmitAck;
+                    end else begin
+                        state   <= AwaitStart;
+                    end
+                end
+
+                tagged Invalid: begin
+                    shift_bits <= shiftInAt0(shift_bits, tagged Valid sda_in);
+                end
+            endcase
+        end
+    endrule
+
+    (* fire_when_enabled *)
+    rule do_transmit_ack (state == TransmitAck);
+        sda_out <= pack(do_nack);
+        do_nack <= False;
+    endrule
+
+    method Action scl_i(Bit#(1) scl_i_next);
+        scl_in._write(scl_i_next);
+        if (scl_i_next == 1 && scl_in == 0) begin
+            scl_redge.send();
+        end
+    endmethod
+
+    method Action sda_i(Bit#(1) sda_i_next) = sda_in._write(sda_i_next);
+
+    method Action sda_i_en(Bit#(1) sda_i_en) = sda_in_en._write(sda_i_en);
+
+    method Bit#(1) sda_o();
+        return sda_out & ~sda_in_en;
+    endmethod
+
+    method Action nack_next();
+        do_nack <= True;
+    endmethod
 
 endmodule
 
