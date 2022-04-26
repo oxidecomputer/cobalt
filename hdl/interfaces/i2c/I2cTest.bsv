@@ -69,28 +69,28 @@ module mkBench (Bench);
             dynamicAssert (e == tagged Ack, "Expected an ACK on the command");
         endaction
         dut.send.put(tagged Write wr_byte_cmd.reg_addr);
-        // action
-        //     let e <- periph.receive.get();
-        //     dynamicAssert (e == tagged ReceivedData wr_byte_cmd.reg_addr, "Expected to receive reg addr that was sent");
-        // endaction
-        // action
-        //     let e <- dut.receive.get();
-        //     dynamicAssert (e == tagged Ack, "Expected an ACK on the data");
-        // endaction
-        // dut.send.put(tagged Write wr_byte_cmd.data);
-        // action
-        //     let e <- periph.receive.get();
-        //     dynamicAssert (e == tagged ReceivedData wr_byte_cmd.data, "Expected to receive data that was sent");
-        // endaction
-        // action
-        //     let e <- dut.receive.get();
-        //     dynamicAssert (e == tagged Ack, "Expected an ACK on the data");
-        // endaction
-        // dut.send.put(tagged Stop);
-        // action
-        //     let e <- periph.receive.get();
-        //     dynamicAssert (e == tagged ReceivedStop, "Expected to receive STOP");
-        // endaction
+        action
+            let e <- dut.receive.get();
+            dynamicAssert (e == tagged Ack, "Expected an ACK on the data");
+        endaction
+        action
+            let e <- periph.receive.get();
+            dynamicAssert (e == tagged ReceivedData wr_byte_cmd.reg_addr, "Expected to receive reg addr that was sent");
+        endaction
+        dut.send.put(tagged Write wr_byte_cmd.data);
+        dut.send.put(tagged Stop);
+        action
+            let e <- periph.receive.get();
+            dynamicAssert (e == tagged ReceivedData wr_byte_cmd.data, "Expected to receive data that was sent");
+        endaction
+        action
+            let e <- dut.receive.get();
+            dynamicAssert (e == tagged Ack, "Expected an ACK on the data");
+        endaction
+        action
+            let e <- periph.receive.get();
+            dynamicAssert (e == tagged ReceivedStop, "Expected to receive STOP");
+        endaction
     endseq);
 
     method busy = !write_seq.done();
@@ -114,9 +114,10 @@ module mkI2cBitControlOneByteWriteTest (Empty);
     };
 
     mkAutoFSM(seq
+        delay(200);
         bench.write(payload);
         await(!bench.busy());
-        delay(500);
+        delay(200);
     endseq);
 endmodule
 

@@ -271,8 +271,8 @@ typedef enum {
 
 module mkI2CPeripheralModel #(Bit#(7) i2c_address) (I2CPeripheralModel);
     // Buffers for Events
-    FIFO#(ModelEvent) incoming_events    <- mkFIFO1();
-    FIFO#(ModelEvent) outgoing_events    <- mkFIFO1();
+    FIFO#(ModelEvent) incoming_events    <- mkSizedFIFO(4);
+    FIFO#(ModelEvent) outgoing_events    <- mkSizedFIFO(4);
 
     Strobe#(8) detect_stop_strobe <- mkLimitStrobe(1, 250, 0);
 
@@ -288,6 +288,14 @@ module mkI2CPeripheralModel #(Bit#(7) i2c_address) (I2CPeripheralModel);
     Reg#(ShiftBits) shift_bits  <- mkReg(shift_bits_reset);
     Reg#(Bool) do_read      <- mkReg(False);
     Reg#(Bool) do_nack      <- mkReg(False);
+
+    rule do_detect_stop_strobe;
+        if (scl_in == 1 && state == ReceiveByte) begin
+            detect_stop_strobe.send();
+        end else begin
+            detect_stop_strobe._write(0);
+        end
+    endrule
 
     (* fire_when_enabled *)
     rule do_await_start (state == AwaitStart);
@@ -306,6 +314,7 @@ module mkI2CPeripheralModel #(Bit#(7) i2c_address) (I2CPeripheralModel);
                 end
             endcase
         end
+
         case (last(shift_bits)) matches
             tagged Valid .bit_: begin
                 shift_bits  <= shift_bits_reset;
@@ -322,41 +331,38 @@ module mkI2CPeripheralModel #(Bit#(7) i2c_address) (I2CPeripheralModel);
         endcase
     endrule
 
-    // (* fire_when_enabled *)
-    // rule do_receive_byte (state == ReceiveByte);
-    //     detect_stop_strobe.send();
+    (* fire_when_enabled *)
+    rule do_receive_byte (state == ReceiveByte);
+        if (scl_redge) begin
+            case (last(shift_bits)) matches
+                tagged Invalid: begin
+                    shift_bits <= shiftInAt0(shift_bits, tagged Valid sda_in);
+                end
+            endcase
+        end
 
-    //     if (scl_redge) begin
-    //         case (last(shift_bits)) matches
-    //             tagged Invalid: begin
-    //                 shift_bits <= shiftInAt0(shift_bits, tagged Valid sda_in);
-    //             end
-    //         endcase
-    //     end
+        if (detect_stop_strobe) begin
+            state <= AwaitStart;
+            outgoing_events.enq(tagged ReceivedStop);
+        end else begin
+            case (last(shift_bits)) matches
+                tagged Valid .bit_: begin
+                    shift_bits  <= shift_bits_reset;
+                    state       <= TransmitAck;
+                    outgoing_events.enq(tagged ReceivedData pack(map(bit_from_maybe, shift_bits)));
+                end
+            endcase
+        end
+    endrule
 
-    //     if (detect_stop_strobe) begin
-    //         state <= AwaitStart;
-    //         outgoing_events.enq(tagged ReceivedStop);
-    //     end else begin
-    //         case (last(shift_bits)) matches
-    //             tagged Valid .bit_: begin
-    //                 shift_bits  <= shift_bits_reset;
-    //                 detect_stop_strobe._write(0);
-    //                 state       <= TransmitAck;
-    //                 outgoing_events.enq(tagged ReceivedData pack(map(bit_from_maybe, shift_bits)));
-    //             end
-    //         endcase
-    //     end
-    // endrule
-
-    // (* fire_when_enabled *)
-    // rule do_transmit_ack (state == TransmitAck);
-    //     sda_out <= pack(do_nack);
-    //     do_nack <= False;
-    //     if (scl_redge) begin
-    //         state   <= ReceiveByte;
-    //     end
-    // endrule
+    (* fire_when_enabled *)
+    rule do_transmit_ack (state == TransmitAck);
+        sda_out <= pack(do_nack);
+        do_nack <= False;
+        if (scl_redge) begin
+            state   <= ReceiveByte;
+        end
+    endrule
 
     method Action scl_i(Bit#(1) scl_i_next);
         scl_in._write(scl_i_next);
