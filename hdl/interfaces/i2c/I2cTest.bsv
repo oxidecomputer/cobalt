@@ -22,20 +22,42 @@ BitControlParams test_params    = BitControlParams {
                                     scl_freq: 100,
                                     peripheral_addr: 7'b1010110};
 
+typedef enum {
+    Write   = 0,
+    Read    = 1
+} CommandType deriving (Eq, Bits, FShow);
+
 typedef struct {
+    CommandType cmd;
     Bit#(8) reg_addr;
     Bit#(8) data;
-} WriteByte deriving (Bits, Eq, FShow);
+} Command deriving (Bits, Eq, FShow);
 
-WriteByte default_write_byte = WriteByte {
+Command default_command = Command {
+                                cmd: Read,
                                 reg_addr: 8'hFF,
                                 data: 8'hFF};
+
+function Action check_peripheral_event(I2CPeripheralModel peripheral,
+                                        I2c::ModelEvent expected,
+                                        String message) = 
+    action
+        let e <- peripheral.receive.get();
+        dynamicAssert (e == expected, message);
+    endaction;
+
+function Action check_controller_event(BitControl controller,
+                                I2c::Event expected,
+                                String message) = 
+    action
+        let e <- controller.receive.get();
+        dynamicAssert (e == expected, message);
+    endaction;
 
 interface Bench;
     method Bool busy();
 
-    method Action read(Bit#(8) reg_addr);
-    method Action write(WriteByte cmd);
+    method Action command(Command cmd);
     method Bool error();
     method Action clear();
 endinterface
@@ -49,55 +71,78 @@ module mkBench (Bench);
     mkConnection(dut.pins.sda_o_en, periph.sda_i_en);
     mkConnection(dut.pins.sda_i, periph.sda_o);
 
-    Reg#(Bit#(8)) addr_write    <- mkReg({test_params.peripheral_addr, 1'b0});
-    Reg#(Bit#(8)) addr_read     <- mkReg({test_params.peripheral_addr, 1'b1});
-    Reg#(WriteByte) wr_byte_cmd <- mkReg(default_write_byte);
+    Reg#(CommandType) read_cmd_type     <- mkReg(Read);
+    Reg#(CommandType) write_cmd_type    <- mkReg(Write);
+    Reg#(Bit#(7)) peripheral_addr       <- mkReg(test_params.peripheral_addr);
 
-    FSM write_seq <- mkFSM(seq
+    Wire#(Bool) write_in_progress   <- mkWire();
+    Wire#(Bool) read_in_progress    <- mkWire();
+    Wire#(Bool) busy_               <- mkWire();
+
+    Reg#(Command) command_r         <- mkReg(default_command);
+    Reg#(Bit#(8)) read_reg_addr     <- mkReg(0);
+
+    FSM write_seq <- mkFSMWithPred(seq
         dut.send.put(tagged Start);
-        dut.send.put(tagged Write addr_write);
         action
-            let e <- periph.receive.get();
-            dynamicAssert (e == tagged ReceivedStart, "Expected to receive START");
+            let write_byte = {peripheral_addr, pack(write_cmd_type)};
+            dut.send.put(tagged Write write_byte);
         endaction
-        action
-            let e <- periph.receive.get();
-            dynamicAssert (e == tagged AddressMatch, "Expected address to match");
-        endaction
-        action
-            let e <- dut.receive.get();
-            dynamicAssert (e == tagged Ack, "Expected an ACK on the command");
-        endaction
-        dut.send.put(tagged Write wr_byte_cmd.reg_addr);
-        action
-            let e <- dut.receive.get();
-            dynamicAssert (e == tagged Ack, "Expected an ACK on the data");
-        endaction
-        action
-            let e <- periph.receive.get();
-            dynamicAssert (e == tagged ReceivedData wr_byte_cmd.reg_addr, "Expected to receive reg addr that was sent");
-        endaction
-        dut.send.put(tagged Write wr_byte_cmd.data);
+
+        check_peripheral_event(periph, tagged ReceivedStart, "Expected to receive START");
+        check_peripheral_event(periph, tagged AddressMatch, "Expected address to match");
+        check_controller_event(dut, tagged Ack, "Expected an ACK on the command");
+
+        dut.send.put(tagged Write command_r.reg_addr);
+
+        check_controller_event(dut, tagged Ack, "Expected an ACK on the command");
+        check_peripheral_event(periph, tagged ReceivedData command_r.reg_addr, "Expected to receive reg addr that was sent");
+
+        dut.send.put(tagged Write command_r.data);
         dut.send.put(tagged Stop);
-        action
-            let e <- periph.receive.get();
-            dynamicAssert (e == tagged ReceivedData wr_byte_cmd.data, "Expected to receive data that was sent");
-        endaction
-        action
-            let e <- dut.receive.get();
-            dynamicAssert (e == tagged Ack, "Expected an ACK on the data");
-        endaction
-        action
-            let e <- periph.receive.get();
-            dynamicAssert (e == tagged ReceivedStop, "Expected to receive STOP");
-        endaction
-    endseq);
 
-    method busy = !write_seq.done();
+        check_peripheral_event(periph, tagged ReceivedData command_r.data, "Expected to receive data that was sent");
+        check_controller_event(dut, tagged Ack, "Expected an ACK on the command");
+        check_peripheral_event(periph, tagged ReceivedStop, "Expected to receive STOP");
+    endseq, !read_in_progress);
 
-    method Action write(WriteByte cmd);
-        wr_byte_cmd <= cmd;
-        write_seq.start();
+    FSM read_seq <- mkFSMWithPred(seq
+        dut.send.put(tagged Start);
+        action
+            let read_byte = {peripheral_addr, pack(read_cmd_type)};
+            dut.send.put(tagged Write read_byte);
+        endaction
+
+        check_peripheral_event(periph, tagged ReceivedStart, "Expected to receive START");
+        check_peripheral_event(periph, tagged AddressMatch, "Expected address to match");
+        check_controller_event(dut, tagged Ack, "Expected an ACK on the command");
+
+        dut.send.put(tagged Write command_r.reg_addr);
+
+        check_controller_event(dut, tagged Ack, "Expected an ACK on the command");
+        check_peripheral_event(periph, tagged ReceivedData command_r.reg_addr, "Expected to receive reg addr that was sent");
+    endseq, !write_in_progress);
+
+    (* fire_when_enabled, no_implicit_conditions *)
+    rule do_in_progress;
+        write_in_progress   <= !write_seq.done();
+        read_in_progress    <= !read_seq.done();
+    endrule
+
+    (* fire_when_enabled *)
+    rule do_busy;
+        busy_   <= write_in_progress || read_in_progress;
+    endrule
+
+    method busy = busy_;
+
+    method Action command(Command cmd) if (!busy_);
+        command_r <= cmd;
+        if (cmd.cmd == Write) begin
+            write_seq.start();
+        end else begin
+            read_seq.start();
+        end
     endmethod
 
     method error = dut.error;
@@ -108,14 +153,33 @@ endmodule
 module mkI2cBitControlOneByteWriteTest (Empty);
     Bench bench <- mkBench();
 
-    WriteByte payload = WriteByte {
+    Command payload = Command {
+        cmd: Write,
         reg_addr: 8'hA5,
         data: 8'h3C
     };
 
     mkAutoFSM(seq
         delay(200);
-        bench.write(payload);
+        bench.command(payload);
+        await(!bench.busy());
+        delay(200);
+    endseq);
+endmodule
+
+(* synthesize *)
+module mkI2cBitControlOneByteReadTest (Empty);
+    Bench bench <- mkBench();
+
+    Command payload = Command {
+        cmd: Read,
+        reg_addr: 8'h5A,
+        data: 8'hFF
+    };
+
+    mkAutoFSM(seq
+        delay(200);
+        bench.command(payload);
         await(!bench.busy());
         delay(200);
     endseq);
