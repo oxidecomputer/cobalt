@@ -5,10 +5,11 @@
 package I2c;
 
 import BuildVector::*;
+import Cntrs::*;
 import Connectable::*;
+import ConfigReg::*;
 import FIFO::*;
 import GetPut::*;
-import RegFile::*;
 import StmtFSM::*;
 import Vector::*;
 
@@ -51,7 +52,7 @@ typedef enum {
     ReceiveAck      = 4,
     ReceiveByte     = 5,
     TransmitStop    = 6,
-    TransmitNack    = 7
+    TransmitAck     = 7
 } State deriving (Eq, Bits, FShow);
 
 interface BitControl;
@@ -80,6 +81,10 @@ module mkBitControl #(Integer core_clk_freq, Integer i2c_scl_freq) (BitControl);
     // For standard speed (100KHz) the minimum setup delay is 4us
     Strobe#(8) setup_strobe <- mkLimitStrobe(1, 250, 0);
 
+    // Delays the transition of SDA after the falling edge of SCL
+    // Aside from START/STOP, SDA should not change while SCL is high
+    Strobe#(3) sda_transition_strobe <- mkLimitStrobe(1, 7, 0);
+
     // Buffers for Events
     FIFO#(Event) incoming_events   <- mkFIFO1();
     FIFO#(Event) outgoing_events    <- mkFIFO1();
@@ -89,13 +94,16 @@ module mkBitControl #(Integer core_clk_freq, Integer i2c_scl_freq) (BitControl);
     PulseWire       scl_redge       <- mkPulseWire();
     PulseWire       scl_fedge       <- mkPulseWire();
 
-    Reg#(Bit#(1))   sda_out     <- mkReg(1);
-    Reg#(Bit#(1))   sda_out_en  <- mkReg(1);
-    Wire#(Bit#(1))  sda_in      <- mkWire();
+    Reg#(Bit#(1))   sda_out         <- mkReg(1);
+    Reg#(Bit#(1))   sda_out_en      <- mkReg(1);
+    Wire#(Bit#(1))  sda_in          <- mkWire();
+    Reg#(Bool)      sda_changed     <- mkReg(False);
 
     Reg#(State) state           <- mkReg(AwaitStart);
     Reg#(Bool) scl_active       <- mkReg(False);
     Reg#(ShiftBits) shift_bits  <- mkReg(shift_bits_reset);
+    Reg#(Bool) is_read          <- mkReg(False);
+    Reg#(Bool) read_finished    <- mkReg(False);
 
     (* fire_when_enabled *)
     rule do_setup_delay(state == TransmitStart || state == TransmitStop);
@@ -119,6 +127,21 @@ module mkBitControl #(Integer core_clk_freq, Integer i2c_scl_freq) (BitControl);
         if (scl_out_next == 0 && scl_out == 1) begin
             scl_fedge.send();
         end
+    endrule
+
+    (* fire_when_enabled *)
+    rule do_sda_transition_delay(scl_fedge);
+        sda_changed <= False;
+    endrule
+
+    (* fire_when_enabled *)
+    rule do_scl_fedge_delay(!scl_fedge && sda_transition_strobe);
+        sda_changed <= True;
+    endrule
+
+    (* fire_when_enabled *)
+    rule do_tick_sda_transition_delay(!sda_changed);
+        sda_transition_strobe.send();
     endrule
 
     rule do_next;
@@ -148,7 +171,7 @@ module mkBitControl #(Integer core_clk_freq, Integer i2c_scl_freq) (BitControl);
             end
 
             {TransmitByte, .*}: begin
-                if (scl_fedge) begin
+                if (sda_transition_strobe) begin
                     case (last(shift_bits)) matches
                         tagged Valid .bit_: begin
                             sda_out <= bit_;
@@ -163,6 +186,7 @@ module mkBitControl #(Integer core_clk_freq, Integer i2c_scl_freq) (BitControl);
             end
 
             {ReceiveAck, .*}: begin
+                sda_out     <= 0;
                 if (scl_redge) begin
                     sda_out_en  <= 1;
                     state       <= AwaitCommand;
@@ -188,7 +212,8 @@ module mkBitControl #(Integer core_clk_freq, Integer i2c_scl_freq) (BitControl);
                 if (scl_redge) begin
                     case (last(shift_bits)) matches
                         tagged Valid .bit_: begin
-                            state   <= TransmitNack;
+                            state   <= TransmitAck;
+                            read_finished <= True;
                             outgoing_events.enq(tagged ReadData pack(map(bit_from_maybe, shift_bits)));
                         end
 
@@ -199,9 +224,9 @@ module mkBitControl #(Integer core_clk_freq, Integer i2c_scl_freq) (BitControl);
                 end
             end
 
-            {TransmitNack, .*}: begin
+            {TransmitAck, .*}: begin
                 sda_out_en  <= 1;
-                sda_out     <= 1;
+                sda_out     <= pack(read_finished);
                 state       <= AwaitCommand;
             end
 
@@ -257,18 +282,20 @@ typedef union tagged {
     void ReceivedStop;
     void AddressMatch;
     void AddressMismatch;
-    Bit#(8) TransmitData;
+    Bit#(8) TransmittedData;
     Bit#(8) ReceivedData;
 } ModelEvent deriving (Bits, Eq, FShow);
 
 typedef enum {
     AwaitStartByte      = 0,
     ReceiveStartByte  = 1,
-    ReceiveAddress   = 2,
-    ReceiveByte     = 3,
-    TransmitByte    = 4,
-    TransmitAck     = 6
+    ReceiveByte     = 2,
+    TransmitByte    = 3,
+    ReceiveAck      = 4,
+    TransmitAck     = 5
 } ModelState deriving (Eq, Bits, FShow);
+
+// Vector#(256, Bit#(8)) initialized_registers = replicate(0);
 
 module mkI2CPeripheralModel #(Bit#(7) i2c_address) (I2CPeripheralModel);
     // Buffers for Events
@@ -276,43 +303,89 @@ module mkI2CPeripheralModel #(Bit#(7) i2c_address) (I2CPeripheralModel);
     FIFO#(ModelEvent) outgoing_events    <- mkSizedFIFO(4);
 
     // The register map
-    RegFile#(Bit#(8), Bit#(8)) memory_map   <- mkRegFile(8'h00, 8'hFF);
+    Reg#(Vector#(256, Bit#(8))) memory_map <- mkReg(replicate(0));
 
-    Strobe#(8) detect_stop_strobe <- mkLimitStrobe(1, 250, 0);
-
-    Reg#(Bit#(7)) peripheral_address   <- mkReg(i2c_address);
+    Reg#(Bit#(7)) peripheral_address    <- mkReg(i2c_address);
 
     Reg#(Bit#(1)) sda_out       <- mkReg(1);
-    Reg#(Bit#(1)) sda_in        <- mkReg(0);
-    Reg#(Bit#(1)) sda_in_en    <- mkReg(1);
-    Reg#(Bit#(1)) scl_in       <- mkReg(0);
+    Reg#(Bit#(1)) sda_in_en     <- mkReg(1);
+    Reg#(Bit#(1)) sda_in        <- mkReg(1);
+    Reg#(Bit#(1)) sda_prev   <- mkReg(1);
+    Reg#(Bit#(1)) scl_in        <- mkReg(1);
+    Reg#(Bit#(1)) scl_in_prev        <- mkReg(1);
+    Wire#(Bit#(1)) sda       <- mkWire();
+    PulseWire scl_in_fedge      <- mkPulseWire();
+    PulseWire sda_redge      <- mkPulseWire();
+    PulseWire sda_fedge      <- mkPulseWire();
+    PulseWire start_detected    <- mkPulseWire();
+    PulseWire stop_detected     <- mkPulseWire();
 
-    Reg#(ModelState) state  <- mkReg(AwaitStartByte);
-    PulseWire scl_redge     <- mkPulseWire();
+    Reg#(ModelState) state      <- mkReg(AwaitStartByte);
+    PulseWire scl_redge         <- mkPulseWire();
     Reg#(ShiftBits) shift_bits  <- mkReg(shift_bits_reset);
-    Reg#(Bit#(8)) current_address <- mkReg(0);
-    Reg#(Bit#(8)) data <- mkReg(0);
-    Reg#(Bool) do_read      <- mkReg(False);
-    Reg#(Bool) do_nack      <- mkReg(False);
+    Reg#(Bit#(8)) cur_data      <- mkReg(0);
+    ConfigReg#(UInt#(8)) cur_addr     <- mkConfigReg(0);
 
-    rule do_detect_stop_strobe;
-        if (scl_in == 1 && state == ReceiveByte) begin
-            detect_stop_strobe.send();
-        end else begin
-            detect_stop_strobe._write(0);
+    Reg#(Bool) addr_set    <- mkReg(False);
+    Reg#(Bool) is_read          <- mkReg(False);
+    Reg#(Bool) is_sequential    <- mkReg(False);
+    Reg#(Bool) do_read           <- mkReg(False);
+    Reg#(Bool) do_write          <- mkReg(False);
+    Reg#(Bool) nack_next_          <- mkReg(False);
+
+
+    (* fire_when_enabled *)
+    rule do_detect_scl_fedge;
+        scl_in_prev <= scl_in;
+
+        if (scl_in == 0 && scl_in_prev == 1) begin
+            scl_in_fedge.send();
         end
     endrule
 
     (* fire_when_enabled *)
+    rule do_simulated_sda_state;
+        if (sda_in_en == 1) begin
+            sda <= sda_in;
+        end else begin
+            sda <= sda_out;
+        end
+    endrule
+
+    (* fire_when_enabled *)
+    rule do_detect_sda_edges;
+        sda_prev <= sda;
+
+        if (sda == 1 && sda_prev == 0) begin
+            sda_redge.send();
+        end else if (sda == 0 && sda_prev == 1) begin
+            sda_fedge.send();
+        end
+    endrule
+
+    (* fire_when_enabled *)
+    rule do_detect_start(scl_in == 1 && sda_fedge);
+        start_detected.send();
+    endrule
+
+    (* fire_when_enabled *)
+    rule do_detect_stop(scl_in == 1 && sda_redge);
+        stop_detected.send();
+    endrule
+
+    (* fire_when_enabled *)
     rule do_await_start (state == AwaitStartByte);
-        if (sda_in == 0 && scl_in == 1) begin
+        shift_bits  <= shift_bits_reset;
+        is_sequential   <= False;
+        if (start_detected) begin
             state <= ReceiveStartByte;
             outgoing_events.enq(tagged ReceivedStart);
         end
     endrule
 
     (* fire_when_enabled *)
-    rule do_receive_command (state == ReceiveStartByte);
+    rule do_receive_start_byte (state == ReceiveStartByte);
+        addr_set        <= False;
         if (scl_redge) begin
             case (last(shift_bits)) matches
                 tagged Invalid: begin
@@ -324,9 +397,9 @@ module mkI2CPeripheralModel #(Bit#(7) i2c_address) (I2CPeripheralModel);
         case (last(shift_bits)) matches
             tagged Valid .bit_: begin
                 shift_bits  <= shift_bits_reset;
-                let bits = pack(map(bit_from_maybe, shift_bits));
-                if (bits[7:1] == peripheral_address) begin
-                    do_read <= bit_ == 1;
+                let command_byte = pack(map(bit_from_maybe, shift_bits));
+                if (command_byte[7:1] == peripheral_address) begin
+                    is_read <= command_byte[0] == 1;
                     state   <= TransmitAck;
                     outgoing_events.enq(tagged AddressMatch);
                 end else begin
@@ -335,6 +408,7 @@ module mkI2CPeripheralModel #(Bit#(7) i2c_address) (I2CPeripheralModel);
                 end
             end
         endcase
+
     endrule
 
     (* fire_when_enabled *)
@@ -347,26 +421,71 @@ module mkI2CPeripheralModel #(Bit#(7) i2c_address) (I2CPeripheralModel);
             endcase
         end
 
-        if (detect_stop_strobe) begin
+        if (stop_detected) begin
             state <= AwaitStartByte;
             outgoing_events.enq(tagged ReceivedStop);
         end else begin
             case (last(shift_bits)) matches
                 tagged Valid .bit_: begin
-                    shift_bits  <= shift_bits_reset;
                     state       <= TransmitAck;
                     outgoing_events.enq(tagged ReceivedData pack(map(bit_from_maybe, shift_bits)));
+
+                    if (!addr_set) begin
+                        addr_set    <= True;
+                        cur_addr    <= unpack(pack(map(bit_from_maybe, shift_bits)));
+                    end else if (!is_read) begin
+                        let wdata        = pack(map(bit_from_maybe, shift_bits));
+                        cur_data        <= wdata;
+                        is_sequential   <= True;
+                        if (is_sequential) begin
+                            cur_addr                    <= cur_addr + 1;
+                            memory_map[cur_addr + 1]    <= wdata;
+                        end else begin
+                            memory_map[cur_addr]        <= wdata;
+                        end
+                    end
                 end
             endcase
         end
     endrule
 
     (* fire_when_enabled *)
+    rule do_transmit_byte (state == TransmitByte);
+        if (scl_in_fedge) begin
+            case (last(shift_bits)) matches
+                tagged Valid .bit_: begin
+                    sda_out <= bit_;
+                    shift_bits <= shiftOutFromN(tagged Invalid, shift_bits, 1);
+                end
+
+                tagged Invalid: begin
+                    outgoing_events.enq(tagged TransmittedData cur_data);
+                    state   <= ReceiveAck;
+                end
+            endcase
+        end
+    endrule
+
+    // (* fire_when_enabled *)
+    // rule do_receive_ack (state == ReceiveAck);
+        
+    // endrule
+
+    (* fire_when_enabled *)
     rule do_transmit_ack (state == TransmitAck);
-        sda_out <= pack(do_nack);
-        do_nack <= False;
+        sda_out     <= pack(nack_next_);
+        nack_next_  <= False;
+        do_write    <= False;
+        do_read     <= False;
         if (scl_redge) begin
-            state   <= ReceiveByte;
+            if (is_read) begin
+                cur_data    <= memory_map[cur_addr];
+                shift_bits  <= map(tagged Valid, unpack(memory_map[cur_addr]));
+                state       <= TransmitByte;
+            end else begin
+                shift_bits  <= shift_bits_reset;
+                state       <= ReceiveByte;
+            end
         end
     endrule
 
@@ -386,7 +505,7 @@ module mkI2CPeripheralModel #(Bit#(7) i2c_address) (I2CPeripheralModel);
     endmethod
 
     method Action nack_next();
-        do_nack <= True;
+        nack_next_ <= True;
     endmethod
 
     interface Put send;

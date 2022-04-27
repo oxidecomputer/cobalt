@@ -1,21 +1,21 @@
 [*]
 [*] GTKWave Analyzer v3.3.100 (w)1999-2019 BSI
-[*] Fri Apr 22 22:44:34 2022
+[*] Wed Apr 27 23:12:51 2022
 [*]
-[dumpfile] "\\wsl$\Ubuntu-20.04\home\aaron\Oxide\git\cobalt\build\vcd\I2cTests_mkI2cBitControlOneByteWriteTest.vcd"
-[dumpfile_mtime] "Fri Apr 22 22:39:50 2022"
-[dumpfile_size] 34160
+[dumpfile] "\\wsl$\Ubuntu-20.04\home\aaron\Oxide\git\cobalt\build\vcd\I2cTests_mkI2cBitControlOneByteReadTest.vcd"
+[dumpfile_mtime] "Wed Apr 27 23:11:15 2022"
+[dumpfile_size] 1231520
 [savefile] "\\wsl$\Ubuntu-20.04\home\aaron\Oxide\git\cobalt\hdl\interfaces\i2c\BitControlTest.gtkw"
-[timestart] 0
-[size] 1738 1368
+[timestart] 37260
+[size] 1743 1368
 [pos] -1 -1
-*-10.942743 9180 8860 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-11.015102 38650 8860 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] main.
 [treeopen] main.top.
-[sst_width] 348
+[sst_width] 339
 [signals_width] 366
 [sst_expanded] 1
-[sst_vpaned_height] 899
+[sst_vpaned_height] 878
 @200
 -BitControl
 -Wires
@@ -73,13 +73,10 @@ main.top.bench_dut_outgoing_events.DEQ
 @200
 -
 -I2CPeripheralModel
-@28
-main.top.bench_periph_address[6:0]
-@200
 -Wires
 @28
-main.top.bench_periph_scl_in
 main.top.bench_periph_sda_in
+main.top.bench_periph_scl_in
 main.top.bench_periph_sda_in_en
 main.top.bench_periph_sda_out
 @200
@@ -107,13 +104,22 @@ main.top.bench_periph_shift_bits[15:0]
 (15)main.top.bench_periph_shift_bits[15:0]
 @1401200
 -group_end
+@24
+main.top.bench_periph_cur_addr[7:0]
+@22
+main.top.bench_periph_memory_map[2047:0]
 @200
 -Control
-@29
-main.top.bench_periph_do_read
 @28
+main.top.bench_periph_sda_redge
+main.top.bench_periph_sda_fedge
+main.top.bench_periph_do_read
 main.top.bench_periph_scl_redge
-main.top.bench_periph_do_nack
+main.top.bench_periph_start_detected
+main.top.bench_periph_stop_detected
+main.top.bench_periph_do_write
+main.top.bench_periph_do_read
+main.top.bench_periph_is_sequential
 @200
 -Incoming Event
 @22
@@ -130,5 +136,10 @@ main.top.bench_periph_outgoing_events.D_OUT[10:0]
 @28
 main.top.bench_periph_outgoing_events.ENQ
 main.top.bench_periph_outgoing_events.DEQ
+@200
+-
+-Testbench
+@23
+main.top.bench_last_byte[7:0]
 [pattern_trace] 1
 [pattern_trace] 0
