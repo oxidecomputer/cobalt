@@ -8,6 +8,7 @@ import BuildVector::*;
 import Connectable::*;
 import FIFO::*;
 import GetPut::*;
+import RegFile::*;
 import StmtFSM::*;
 import Vector::*;
 
@@ -261,12 +262,12 @@ typedef union tagged {
 } ModelEvent deriving (Bits, Eq, FShow);
 
 typedef enum {
-    AwaitStart      = 0,
-    ReceiveAddress  = 1,
-    ReceiveByte     = 2,
-    TransmitRead    = 3,
-    ReceiveWrite    = 4,
-    TransmitAck     = 5
+    AwaitStartByte      = 0,
+    ReceiveStartByte  = 1,
+    ReceiveAddress   = 2,
+    ReceiveByte     = 3,
+    TransmitByte    = 4,
+    TransmitAck     = 6
 } ModelState deriving (Eq, Bits, FShow);
 
 module mkI2CPeripheralModel #(Bit#(7) i2c_address) (I2CPeripheralModel);
@@ -274,18 +275,23 @@ module mkI2CPeripheralModel #(Bit#(7) i2c_address) (I2CPeripheralModel);
     FIFO#(ModelEvent) incoming_events    <- mkSizedFIFO(4);
     FIFO#(ModelEvent) outgoing_events    <- mkSizedFIFO(4);
 
+    // The register map
+    RegFile#(Bit#(8), Bit#(8)) memory_map   <- mkRegFile(8'h00, 8'hFF);
+
     Strobe#(8) detect_stop_strobe <- mkLimitStrobe(1, 250, 0);
 
-    Reg#(Bit#(7)) address   <- mkReg(i2c_address);
+    Reg#(Bit#(7)) peripheral_address   <- mkReg(i2c_address);
 
     Reg#(Bit#(1)) sda_out       <- mkReg(1);
     Reg#(Bit#(1)) sda_in        <- mkReg(0);
     Reg#(Bit#(1)) sda_in_en    <- mkReg(1);
     Reg#(Bit#(1)) scl_in       <- mkReg(0);
 
-    Reg#(ModelState) state  <- mkReg(AwaitStart);
+    Reg#(ModelState) state  <- mkReg(AwaitStartByte);
     PulseWire scl_redge     <- mkPulseWire();
     Reg#(ShiftBits) shift_bits  <- mkReg(shift_bits_reset);
+    Reg#(Bit#(8)) current_address <- mkReg(0);
+    Reg#(Bit#(8)) data <- mkReg(0);
     Reg#(Bool) do_read      <- mkReg(False);
     Reg#(Bool) do_nack      <- mkReg(False);
 
@@ -298,15 +304,15 @@ module mkI2CPeripheralModel #(Bit#(7) i2c_address) (I2CPeripheralModel);
     endrule
 
     (* fire_when_enabled *)
-    rule do_await_start (state == AwaitStart);
+    rule do_await_start (state == AwaitStartByte);
         if (sda_in == 0 && scl_in == 1) begin
-            state <= ReceiveAddress;
+            state <= ReceiveStartByte;
             outgoing_events.enq(tagged ReceivedStart);
         end
     endrule
 
     (* fire_when_enabled *)
-    rule do_receive_command (state == ReceiveAddress);
+    rule do_receive_command (state == ReceiveStartByte);
         if (scl_redge) begin
             case (last(shift_bits)) matches
                 tagged Invalid: begin
@@ -319,12 +325,12 @@ module mkI2CPeripheralModel #(Bit#(7) i2c_address) (I2CPeripheralModel);
             tagged Valid .bit_: begin
                 shift_bits  <= shift_bits_reset;
                 let bits = pack(map(bit_from_maybe, shift_bits));
-                if (bits[7:1] == address) begin
+                if (bits[7:1] == peripheral_address) begin
                     do_read <= bit_ == 1;
                     state   <= TransmitAck;
                     outgoing_events.enq(tagged AddressMatch);
                 end else begin
-                    state   <= AwaitStart;
+                    state   <= AwaitStartByte;
                     outgoing_events.enq(tagged AddressMismatch);
                 end
             end
@@ -342,7 +348,7 @@ module mkI2CPeripheralModel #(Bit#(7) i2c_address) (I2CPeripheralModel);
         end
 
         if (detect_stop_strobe) begin
-            state <= AwaitStart;
+            state <= AwaitStartByte;
             outgoing_events.enq(tagged ReceivedStop);
         end else begin
             case (last(shift_bits)) matches
