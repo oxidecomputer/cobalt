@@ -151,7 +151,6 @@ module mkInput #(InputType input_type, Bool pull_up) (Input#(one_bit_type))
         provisos (
             Bits#(one_bit_type, 1));    // 1-bit type
     let pin_type = {pack(OutputType'(OutputDisabled)), pack(input_type)};
-    let pull_up = False;
     let negative_trigger = False;
 
     SB_IO#(one_bit_type) io <- vMkSB_IO(pin_type, "SB_LVCMOS", pull_up, negative_trigger);
@@ -182,11 +181,10 @@ endmodule
 //
 // Output primitive of the given `output_type`.
 //
-module mkOutput #(OutputType output_type) (Output#(one_bit_type))
+module mkOutput #(OutputType output_type, Bool pull_up) (Output#(one_bit_type))
         provisos (
             Bits#(one_bit_type, 1));    // 1-bit type
     let pin_type = {pack(output_type), pack(InputType'(InputRegistered))};
-    let pull_up = False;
     let negative_trigger = False;
 
     SB_IO#(one_bit_type) io <- vMkSB_IO(pin_type, "SB_LVCMOS", pull_up, negative_trigger);
