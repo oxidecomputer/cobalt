@@ -15,24 +15,6 @@ import Clocks::*;
 // provided synthesis toolchain.
 //
 
-module mkInitialReset (Reset);
-    Clock clk <- exposeCurrentClock();
-
-    Reg#(Bool) done <- mkRegA(False);
-    MakeResetIfc ifc <- mkReset(2, True, clk);
-
-    (* no_implicit_conditions, fire_when_enabled *)
-    rule do_reset;
-        done <= True;
-
-        if (!done) begin
-            ifc.assertReset();
-        end
-    endrule
-
-    return ifc.new_rst;
-endmodule
-
 //
 // DifferentialPairTx(..) provides an interface to the inout pads of a differential output pin pair.
 //
@@ -126,7 +108,7 @@ typedef enum {
     OutputRegisteredEnableRegistered = 4'b1101,
     OutputRegisteredInverted = 4'b0111,
     OutputRegisteredEnableInverted = 4'b1011,
-    OuputRegisteredEnableRegisteredInverted = 'b1111
+    OutputRegisteredEnableRegisteredInverted = 'b1111
 } OutputType deriving (Bits, Eq);
 
 typedef enum {
@@ -159,14 +141,19 @@ interface DifferentialOutput #(type one_bit_type);
     method Action _write(one_bit_type val);
 endinterface
 
+typedef Tuple2#(DifferentialInput#(one_bit_type), DifferentialOutput#(one_bit_type))
+    DifferentialInputOutput#(type one_bit_type);
+
 //
 // Input primitive of the given `input_type` with selectable pull-up.
 //
 module mkInput #(InputType input_type, Bool pull_up) (Input#(one_bit_type))
         provisos (
             Bits#(one_bit_type, 1));    // 1-bit type
-    let pin_type = {4'b0000, pack(input_type)};
-    SB_IO#(one_bit_type) io <- vMkSB_IO(pin_type, "SB_LVCMOS", pull_up, False /* neg trigger */);
+    let pin_type = {pack(OutputType'(OutputDisabled)), pack(input_type)};
+    let negative_trigger = False;
+
+    SB_IO#(one_bit_type) io <- vMkSB_IO(pin_type, "SB_LVCMOS", pull_up, negative_trigger);
 
     interface Inout pad = io.pad;
     method _read = io.q0;
@@ -178,9 +165,11 @@ endmodule
 module mkDifferentialInput #(InputType input_type) (DifferentialInput#(one_bit_type))
         provisos (
             Bits#(one_bit_type, 1));    // 1-bit type
-    let pin_type = {4'b0000, pack(input_type)};
-    SB_IO#(one_bit_type) p_io <-
-        vMkSB_IO(pin_type, "SB_LVDS_INPUT", False /* pull-up ignored */, False /* neg trigger */);
+    let pin_type = {pack(OutputType'(OutputDisabled)), pack(input_type)};
+    let pull_up = False;
+    let negative_trigger = False;
+
+    SB_IO#(one_bit_type) p_io <- vMkSB_IO(pin_type, "SB_LVDS_INPUT", pull_up, negative_trigger);
 
     interface DifferentialPairRx pads;
         interface Inout p = p_io.pad;
@@ -192,11 +181,13 @@ endmodule
 //
 // Output primitive of the given `output_type`.
 //
-module mkOutput #(OutputType output_type) (Output#(one_bit_type))
+module mkOutput #(OutputType output_type, Bool pull_up) (Output#(one_bit_type))
         provisos (
             Bits#(one_bit_type, 1));    // 1-bit type
-    let pin_type = {pack(output_type), 2'b00};
-    SB_IO#(one_bit_type) io <- vMkSB_IO(pin_type, "SB_LVCMOS", False, False /* neg trigger */);
+    let pin_type = {pack(output_type), pack(InputType'(InputRegistered))};
+    let negative_trigger = False;
+
+    SB_IO#(one_bit_type) io <- vMkSB_IO(pin_type, "SB_LVCMOS", pull_up, negative_trigger);
 
     interface Inout pad = io.pad;
     method Action _write(one_bit_type val);
@@ -210,11 +201,12 @@ endmodule
 module mkDifferentialOutput #(OutputType output_type) (DifferentialOutput#(one_bit_type))
         provisos (
             Bits#(one_bit_type, 1));    // 1-bit type
-    let pin_type = {pack(output_type), 2'b00};
-    SB_IO#(one_bit_type) p_io <-
-        vMkSB_IO(pin_type, "SB_LVCMOS", False /* pull-up ignored */, False /* neg trigger */);
-    SB_IO#(one_bit_type) n_io <-
-        vMkSB_IO(pin_type, "SB_LVCMOS", False /* pull-up ignored */, False /* neg trigger */);
+    let pin_type = {pack(output_type), pack(InputType'(InputRegistered))};
+    let pull_up = False;
+    let negative_trigger = False;
+
+    SB_IO#(one_bit_type) p_io <- vMkSB_IO(pin_type, "SB_LVCMOS", pull_up, negative_trigger);
+    SB_IO#(one_bit_type) n_io <- vMkSB_IO(pin_type, "SB_LVCMOS", pull_up, negative_trigger);
 
     interface DifferentialPairTx pads;
         interface Inout p = p_io.pad;
