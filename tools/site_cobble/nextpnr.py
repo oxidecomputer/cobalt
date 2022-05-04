@@ -94,6 +94,7 @@ def _any_bitstream(package, name, *,
             implicit = [config_report_link],
             rule = 'pack_' + nextpnr_family_name + '_bitstream',
         )
+        bitstream.expose(path = bitstream_path, name = 'bitstream')
         bitstream.symlink(
             target = bitstream_path,
             source = package.linkpath(bitstream_out))
