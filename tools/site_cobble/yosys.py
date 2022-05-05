@@ -113,8 +113,13 @@ def yosys_design(package, name, *,
                     'cxx_flags': [
                         # Required for the generated .cc file to be able to include its .h file.
                         '-I%s' % package.project.build_dir,
-                        # Required to have dependants include either the .h or .cc file.
-                        '-I%s/env/%s' % (package.project.build_dir, env.digest),
+                        # Required to have dependants include either the .h or
+                        # .cc file.
+                        #
+                        # Note: it is important to use `Project.outpath(..)`
+                        # here because this path changes depending on whether or
+                        # not the project is the root or a subproject.
+                        '-I%s' % package.project.outpath(env, ('')),
                     ],
                     # Anything using the generated .h or .cc file will want to include them. This
                     # forces the generation of these files to happen independent of the order in
