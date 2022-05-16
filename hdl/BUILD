@@ -29,6 +29,11 @@ bluespec_library('BitSampling',
         ':Strobe',
     ])
 
+bluespec_library('Countdown',
+    sources = [
+        'Countdown.bsv',
+    ])
+
 bluespec_library('Encoding8b10b',
     sources = [
         'Encoding8b10b.bsv',
@@ -73,6 +78,16 @@ bluespec_library('TestUtils',
     ])
 
 # Tests
+
+bluesim_tests('CountdownTest',
+    env = 'bluesim_default',
+    suite = 'Countdown.bsv',
+    modules = [
+        'mkCountdownTest',
+    ],
+    deps = [
+        ':Countdown',
+    ])
 
 bluesim_tests('InitialResetTests',
     env = 'bluesim_default',
