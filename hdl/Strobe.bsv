@@ -10,7 +10,7 @@ export Strobe(..);
 export mkPowerTwoStrobe;
 export mkFractionalStrobe;
 export mkLimitStrobe;
-export mkFreeRunningStrobe;
+export mkFreeRunningStrobe, asPulseWire;
 
 export TickFunc, mkStrobeWithTickFunc;
 
