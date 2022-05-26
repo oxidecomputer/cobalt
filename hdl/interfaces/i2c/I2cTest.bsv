@@ -36,11 +36,11 @@ typedef struct {
     OpType op;
     Bit#(7) peripheral_addr;
     Bit#(8) register_addr;
-    Vector#(4, Maybe#(Bit#(8))) data;
+    Vector#(3, Maybe#(Bit#(8))) data;
 } Command deriving (Bits, Eq, FShow);
 
-Vector#(4, Maybe#(Bit#(8))) no_data = vec(tagged Invalid, tagged Invalid,
-                                            tagged Invalid, tagged Invalid);
+Vector#(3, Maybe#(Bit#(8))) no_data = vec(tagged Invalid, tagged Invalid,
+                                            tagged Invalid);
 instance DefaultValue #(Command);
     defaultValue = Command {
         op: Read,
@@ -111,7 +111,6 @@ module mkBench (Bench);
         endseq
 
         dut.send.put(tagged Stop);
-
         check_peripheral_event(periph, tagged ReceivedStop, "Expected to receive STOP");
 
     endseq, command_r.op == Write);
@@ -129,7 +128,14 @@ module mkBench (Bench);
 
         dut.send.put(tagged Read);
 
+        // while (dut.receive.first != tagged Nack) seq
         check_peripheral_event(periph, tagged TransmittedData last_byte, "Expected to read back written data");
+        check_controller_event(dut, tagged ReadData last_byte, "Expected controller to receive byte");
+
+        dut.send.put(tagged Stop);
+
+        check_peripheral_event(periph, tagged ReceivedNack, "Expected a NACK to end the read");
+        check_peripheral_event(periph, tagged ReceivedStop, "Expected to receive STOP");
 
     endseq, command_r.op == Read);
 
@@ -156,7 +162,7 @@ module mkI2cBitControlOneByteWriteTest (Empty);
         op: Write,
         peripheral_addr: test_params.peripheral_addr,
         register_addr: 8'hA5,
-        data: vec(tagged Valid 8'h3C, tagged Invalid, tagged Invalid, tagged Invalid)
+        data: vec(tagged Valid 8'h3C, tagged Invalid, tagged Invalid)
     };
 
     mkAutoFSM(seq
@@ -175,8 +181,7 @@ module mkI2cBitControlSequentialWriteTest (Empty);
         op: Write,
         peripheral_addr: test_params.peripheral_addr,
         register_addr: 8'h9D,
-        data: vec(tagged Valid 8'hDE, tagged Valid 8'hAD,
-                  tagged Valid 8'hBE, tagged Valid 8'hEF)
+        data: vec(tagged Valid 8'hDE, tagged Valid 8'hAD, tagged Valid 8'hBE)
     };
 
     mkAutoFSM(seq
@@ -191,11 +196,18 @@ endmodule
 module mkI2cBitControlOneByteReadTest (Empty);
     Bench bench <- mkBench();
 
-    Command write = Command {
+    Command write_single_read = Command {
+        op: Write,
+        peripheral_addr: test_params.peripheral_addr,
+        register_addr: pack(I2c::num_reads_addr),
+        data: vec(tagged Valid 8'h01, tagged Invalid, tagged Invalid)
+    };
+
+    Command write_read_addr = Command {
         op: Write,
         peripheral_addr: test_params.peripheral_addr,
         register_addr: 8'hA5,
-        data: vec(tagged Valid 8'h3C, tagged Invalid, tagged Invalid, tagged Invalid)
+        data: vec(tagged Valid 8'h3C, tagged Invalid, tagged Invalid)
     };
 
     Command read = Command {
@@ -207,11 +219,39 @@ module mkI2cBitControlOneByteReadTest (Empty);
 
     mkAutoFSM(seq
         delay(200);
-        bench.command(write);
+        bench.command(write_single_read);
+        bench.command(write_read_addr);
         bench.command(read);
         await(!bench.busy());
         delay(200);
     endseq);
 endmodule
+
+// (* synthesize *)
+// module mkI2cBitControlSequentialReadTest (Empty);
+//     Bench bench <- mkBench();
+
+//     Command write = Command {
+//         op: Write,
+//         peripheral_addr: test_params.peripheral_addr,
+//         register_addr: 8'hA5,
+//         data: vec(tagged Valid 8'h3C, tagged Invalid, tagged Invalid)
+//     };
+
+//     Command read = Command {
+//         op: Read,
+//         peripheral_addr: test_params.peripheral_addr,
+//         register_addr: 8'hFF,
+//         data: no_data
+//     };
+
+//     mkAutoFSM(seq
+//         delay(200);
+//         bench.command(write);
+//         bench.command(read);
+//         await(!bench.busy());
+//         delay(200);
+//     endseq);
+// endmodule
 
 endpackage: I2cTest
