@@ -313,16 +313,10 @@ typedef enum {
     AwaitStop           = 6
 } ModelState deriving (Eq, Bits, FShow);
 
-UInt#(8) num_reads_addr = 8'hFF;
-
 /*
     Generic I2C Peripheral Model
 
     I2C address assigned at instantiation (i2c_address)
-
-    Register data is held in memory_map. Given that this is a generic model, the
-    mechanism to tell how many bytes to respond with on a read is to write the
-    count into address 0xFF.
 */
 module mkI2CPeripheralModel #(Bit#(7) i2c_address) (I2CPeripheralModel);
     // Buffers for Events
@@ -354,7 +348,6 @@ module mkI2CPeripheralModel #(Bit#(7) i2c_address) (I2CPeripheralModel);
 
     Reg#(Bit#(8)) cur_data          <- mkReg(0);
     ConfigReg#(UInt#(8)) cur_addr   <- mkConfigReg(0);
-    Reg#(UInt#(8)) reads_left       <- mkReg(0);
 
     Reg#(Bool) addr_set    <- mkReg(False);
     Reg#(Bool) is_read          <- mkReg(False);
@@ -524,7 +517,6 @@ module mkI2CPeripheralModel #(Bit#(7) i2c_address) (I2CPeripheralModel);
             if (is_read) begin
                 cur_data    <= memory_map[cur_addr];
                 shift_bits  <= map(tagged Valid, unpack(memory_map[cur_addr]));
-                reads_left  <= unpack(memory_map[num_reads_addr]);
                 state       <= TransmitByte;
             end else begin
                 shift_bits  <= shift_bits_reset;

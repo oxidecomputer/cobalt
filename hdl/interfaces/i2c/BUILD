@@ -34,6 +34,7 @@ bluesim_tests('I2cTests',
         'mkI2cBitControlOneByteWriteTest',
         'mkI2cBitControlOneByteReadTest',
         'mkI2cBitControlSequentialWriteTest',
+        'mkI2cBitControlSequentialReadTest',
     ],
     deps = [
         ':I2c',

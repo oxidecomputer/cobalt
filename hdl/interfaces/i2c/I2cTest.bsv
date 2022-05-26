@@ -196,12 +196,32 @@ endmodule
 module mkI2cBitControlOneByteReadTest (Empty);
     Bench bench <- mkBench();
 
-    Command write_single_read = Command {
+    Command write_read_addr = Command {
         op: Write,
         peripheral_addr: test_params.peripheral_addr,
-        register_addr: pack(I2c::num_reads_addr),
-        data: vec(tagged Valid 8'h01, tagged Invalid, tagged Invalid)
+        register_addr: 8'hA5,
+        data: vec(tagged Valid 8'h3C, tagged Invalid, tagged Invalid)
     };
+
+    Command read = Command {
+        op: Read,
+        peripheral_addr: test_params.peripheral_addr,
+        register_addr: 8'hFF,
+        data: no_data
+    };
+
+    mkAutoFSM(seq
+        delay(200);
+        bench.command(write_read_addr);
+        bench.command(read);
+        await(!bench.busy());
+        delay(200);
+    endseq);
+endmodule
+
+(* synthesize *)
+module mkI2cBitControlSequentialReadTest (Empty);
+    Bench bench <- mkBench();
 
     Command write_read_addr = Command {
         op: Write,
@@ -219,39 +239,11 @@ module mkI2cBitControlOneByteReadTest (Empty);
 
     mkAutoFSM(seq
         delay(200);
-        bench.command(write_single_read);
         bench.command(write_read_addr);
         bench.command(read);
         await(!bench.busy());
         delay(200);
     endseq);
 endmodule
-
-// (* synthesize *)
-// module mkI2cBitControlSequentialReadTest (Empty);
-//     Bench bench <- mkBench();
-
-//     Command write = Command {
-//         op: Write,
-//         peripheral_addr: test_params.peripheral_addr,
-//         register_addr: 8'hA5,
-//         data: vec(tagged Valid 8'h3C, tagged Invalid, tagged Invalid)
-//     };
-
-//     Command read = Command {
-//         op: Read,
-//         peripheral_addr: test_params.peripheral_addr,
-//         register_addr: 8'hFF,
-//         data: no_data
-//     };
-
-//     mkAutoFSM(seq
-//         delay(200);
-//         bench.command(write);
-//         bench.command(read);
-//         await(!bench.busy());
-//         delay(200);
-//     endseq);
-// endmodule
 
 endpackage: I2cTest
