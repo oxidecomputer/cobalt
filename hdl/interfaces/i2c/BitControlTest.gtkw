@@ -1,15 +1,15 @@
 [*]
 [*] GTKWave Analyzer v3.3.100 (w)1999-2019 BSI
-[*] Thu May 26 22:27:07 2022
+[*] Fri May 27 22:22:31 2022
 [*]
-[dumpfile] "\\wsl$\Ubuntu-20.04\home\aaron\Oxide\git\cobalt\build\vcd\I2cTests_mkI2cBitControlOneByteReadTest.vcd"
-[dumpfile_mtime] "Thu May 26 22:26:34 2022"
-[dumpfile_size] 3724133
+[dumpfile] "\\wsl$\Ubuntu-20.04\home\aaron\Oxide\git\cobalt\build\vcd\I2cTests_mkI2cBitControlSequentialReadTest.vcd"
+[dumpfile_mtime] "Fri May 27 22:20:51 2022"
+[dumpfile_size] 4637702
 [savefile] "\\wsl$\Ubuntu-20.04\home\aaron\Oxide\git\cobalt\hdl\interfaces\i2c\BitControlTest.gtkw"
 [timestart] 0
-[size] 1628 1369
+[size] 1635 1368
 [pos] -1 -1
-*-14.110385 28850 8860 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-14.455460 93590 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] main.
 [treeopen] main.top.
 [sst_width] 339
@@ -20,10 +20,10 @@
 -BitControl
 -Wires
 @28
-main.top.bench_dut_sda_out_en
-main.top.bench_dut_sda_out
 main.top.bench_dut_scl_out
+main.top.bench_dut_sda_out
 main.top.bench_dut_sda_in
+main.top.bench_dut_sda_out_en
 @200
 -State
 @24
@@ -79,10 +79,11 @@ main.top.bench_dut_outgoing_events.DEQ
 -I2CPeripheralModel
 -Wires
 @28
-main.top.bench_periph_sda_in
-main.top.bench_periph_sda_in_en
 main.top.bench_periph_scl_in
+main.top.bench_periph_sda_in
 main.top.bench_periph_sda_out
+@29
+main.top.bench_periph_sda_in_en
 @200
 -State
 @24
@@ -108,9 +109,9 @@ main.top.bench_periph_shift_bits[15:0]
 (15)main.top.bench_periph_shift_bits[15:0]
 @1401200
 -group_end
-@24
-main.top.bench_periph_cur_addr[7:0]
 @22
+main.top.bench_periph_cur_addr[7:0]
+main.top.bench_periph_cur_data[7:0]
 main.top.bench_periph_memory_map[2047:0]
 @200
 -Control
@@ -120,9 +121,7 @@ main.top.bench_periph_sda_fedge
 main.top.bench_periph_do_read
 main.top.bench_periph_scl_redge
 main.top.bench_periph_start_detected
-@29
 main.top.bench_periph_stop_detected
-@28
 main.top.bench_periph_do_write
 main.top.bench_periph_do_read
 main.top.bench_periph_is_sequential
@@ -146,6 +145,8 @@ main.top.bench_periph_outgoing_events.DEQ
 -
 -Testbench
 @22
-main.top.bench_last_byte[7:0]
+main.top.bench_prev_written_bytes[23:0]
+@28
+main.top.bench_bytes_done[1:0]
 [pattern_trace] 1
 [pattern_trace] 0

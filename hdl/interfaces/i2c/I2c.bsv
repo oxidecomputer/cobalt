@@ -40,7 +40,7 @@ typedef union tagged {
     void Ack;
     void Nack;
     Bit#(8) Write;
-    void Read;
+    Bool Read;
     Bit#(8) ReadData;
 } Event deriving (Bits, Eq, FShow);
 
@@ -86,7 +86,7 @@ module mkBitControl #(Integer core_clk_freq, Integer i2c_scl_freq) (BitControl);
     Strobe#(3) sda_transition_strobe <- mkLimitStrobe(1, 7, 0);
 
     // Buffers for Events
-    FIFO#(Event) incoming_events   <- mkFIFO1();
+    FIFO#(Event) incoming_events    <- mkFIFO1();
     FIFO#(Event) outgoing_events    <- mkFIFO1();
 
     Reg#(Bit#(1))   scl_out         <- mkReg(1);
@@ -172,8 +172,9 @@ module mkBitControl #(Integer core_clk_freq, Integer i2c_scl_freq) (BitControl);
             end
 
             {AwaitCommand, tagged Write .byte_}: begin
-                shift_bits <= map(tagged Valid, unpack(byte_));
-                state   <= TransmitByte;
+                sda_out_en  <= 1;
+                shift_bits  <= map(tagged Valid, unpack(byte_));
+                state       <= TransmitByte;
             end
 
             {TransmitByte, .*}: begin
@@ -194,7 +195,6 @@ module mkBitControl #(Integer core_clk_freq, Integer i2c_scl_freq) (BitControl);
             {ReceiveAck, .*}: begin
                 sda_out     <= 0;
                 if (scl_redge) begin
-                    sda_out_en  <= 1;
                     state       <= AwaitCommand;
                     incoming_events.deq();
 
@@ -208,18 +208,17 @@ module mkBitControl #(Integer core_clk_freq, Integer i2c_scl_freq) (BitControl);
                 end
             end
 
-            {AwaitCommand, tagged Read}: begin
-                sda_out_en  <= 0;
-                shift_bits  <= shift_bits_reset;
-                state   <= ReceiveByte;
+            {AwaitCommand, tagged Read .is_last_byte}: begin
+                sda_out_en      <= 0;
+                shift_bits      <= shift_bits_reset;
+                read_finished   <= is_last_byte;
+                state           <= ReceiveByte;
             end
 
             {ReceiveByte, .*}: begin
                 case (last(shift_bits)) matches
                     tagged Valid .bit_: begin
                         state   <= TransmitAck;
-                        read_finished <= True;
-                        incoming_events.deq();
                         outgoing_events.enq(tagged ReadData pack(map(bit_from_maybe, shift_bits))); 
                     end
                 endcase
@@ -237,6 +236,10 @@ module mkBitControl #(Integer core_clk_freq, Integer i2c_scl_freq) (BitControl);
                 if (sda_transition_strobe) begin
                     sda_out_en  <= 1;
                     sda_out     <= pack(read_finished);
+                end
+
+                if (scl_redge) begin
+                    incoming_events.deq();
                     state       <= AwaitCommand;
                 end
             end

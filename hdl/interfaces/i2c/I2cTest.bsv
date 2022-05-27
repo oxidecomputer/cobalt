@@ -32,21 +32,25 @@ typedef enum {
     RandomRead  = 2
 } OpType deriving (Eq, Bits, FShow);
 
+typedef Vector#(3, Maybe#(Bit#(8))) I2CBytes;
+
 typedef struct {
     OpType op;
     Bit#(7) peripheral_addr;
     Bit#(8) register_addr;
-    Vector#(3, Maybe#(Bit#(8))) data;
+    I2CBytes data;
+    UInt#(2) read_length;
 } Command deriving (Bits, Eq, FShow);
 
-Vector#(3, Maybe#(Bit#(8))) no_data = vec(tagged Invalid, tagged Invalid,
-                                            tagged Invalid);
+I2CBytes no_data = vec(tagged Invalid, tagged Invalid, tagged Invalid);
+
 instance DefaultValue #(Command);
     defaultValue = Command {
         op: Read,
         peripheral_addr: 7'h7F,
         register_addr: 8'hFF,
-        data: no_data
+        data: no_data,
+        read_length: 1
     };
 endinstance
 
@@ -83,8 +87,10 @@ module mkBench (Bench);
     mkConnection(dut.pins.sda_o_en, periph.sda_i_en);
     mkConnection(dut.pins.sda_i, periph.sda_o);
 
-    Reg#(Command) command_r <- mkReg(defaultValue);
-    Reg#(Bit#(8)) last_byte <- mkReg(0);
+    Reg#(Command) command_r                     <- mkReg(defaultValue);
+    Reg#(Vector#(3,Bit#(8))) prev_written_bytes <- mkReg(replicate(0));
+    Reg#(UInt#(2)) bytes_done                 <- mkReg(0);
+    Reg#(Bool) is_last_byte                     <- mkReg(False);
 
     FSM write_seq <- mkFSMWithPred(seq
         dut.send.put(tagged Start);
@@ -102,12 +108,14 @@ module mkBench (Bench);
         check_controller_event(dut, tagged Ack, "Expected an ACK on the command");
         check_peripheral_event(periph, tagged ReceivedData command_r.register_addr, "Expected to receive reg addr that was sent");
 
+        bytes_done <= 0;
         while (command_r.data[0] != tagged Invalid) seq
                 dut.send.put(tagged Write fromMaybe(8'h00, command_r.data[0]));
                 check_peripheral_event(periph, tagged ReceivedData fromMaybe(8'h00, command_r.data[0]), "Expected to receive data that was sent");
                 check_controller_event(dut, tagged Ack, "Expected an ACK on the command");
-                last_byte       <= fromMaybe(8'h00, command_r.data[0]);
-                command_r.data  <= shiftOutFrom0(tagged Invalid, command_r.data, 1);
+                prev_written_bytes[bytes_done]   <= fromMaybe(8'h00, command_r.data[0]);
+                bytes_done                       <= bytes_done + 1;
+                command_r.data                   <= shiftOutFrom0(tagged Invalid, command_r.data, 1);
         endseq
 
         dut.send.put(tagged Stop);
@@ -126,15 +134,25 @@ module mkBench (Bench);
         check_peripheral_event(periph, tagged AddressMatch, "Expected address to match");
         check_controller_event(dut, tagged Ack, "Expected an ACK on the command");
 
-        dut.send.put(tagged Read);
+        bytes_done <= 0;
+        while (bytes_done != command_r.read_length) seq
+            is_last_byte <= bytes_done + 1 == command_r.read_length;
+            dut.send.put(tagged Read is_last_byte);
 
-        // while (dut.receive.first != tagged Nack) seq
-        check_peripheral_event(periph, tagged TransmittedData last_byte, "Expected to read back written data");
-        check_controller_event(dut, tagged ReadData last_byte, "Expected controller to receive byte");
+            check_peripheral_event(periph, tagged TransmittedData prev_written_bytes[bytes_done], "Expected to read back written data");
+            check_controller_event(dut, tagged ReadData prev_written_bytes[bytes_done], "Expected controller to receive byte");
+            bytes_done <= bytes_done + 1;
+
+            action
+                if (is_last_byte) begin
+                    check_peripheral_event(periph, tagged ReceivedNack, "Expected a Nack to end the read");
+                end else begin
+                    check_peripheral_event(periph, tagged ReceivedAck, "Expected an Ack to continue the read");
+                end
+            endaction
+        endseq
 
         dut.send.put(tagged Stop);
-
-        check_peripheral_event(periph, tagged ReceivedNack, "Expected a NACK to end the read");
         check_peripheral_event(periph, tagged ReceivedStop, "Expected to receive STOP");
 
     endseq, command_r.op == Read);
@@ -162,7 +180,8 @@ module mkI2cBitControlOneByteWriteTest (Empty);
         op: Write,
         peripheral_addr: test_params.peripheral_addr,
         register_addr: 8'hA5,
-        data: vec(tagged Valid 8'h3C, tagged Invalid, tagged Invalid)
+        data: vec(tagged Valid 8'h3C, tagged Invalid, tagged Invalid),
+        read_length: 0
     };
 
     mkAutoFSM(seq
@@ -181,7 +200,8 @@ module mkI2cBitControlSequentialWriteTest (Empty);
         op: Write,
         peripheral_addr: test_params.peripheral_addr,
         register_addr: 8'h9D,
-        data: vec(tagged Valid 8'hDE, tagged Valid 8'hAD, tagged Valid 8'hBE)
+        data: vec(tagged Valid 8'hDE, tagged Valid 8'hAD, tagged Valid 8'hBE),
+        read_length: 0
     };
 
     mkAutoFSM(seq
@@ -200,14 +220,16 @@ module mkI2cBitControlOneByteReadTest (Empty);
         op: Write,
         peripheral_addr: test_params.peripheral_addr,
         register_addr: 8'hA5,
-        data: vec(tagged Valid 8'h3C, tagged Invalid, tagged Invalid)
+        data: vec(tagged Valid 8'h3C, tagged Invalid, tagged Invalid),
+        read_length: 0
     };
 
     Command read = Command {
         op: Read,
         peripheral_addr: test_params.peripheral_addr,
         register_addr: 8'hFF,
-        data: no_data
+        data: no_data,
+        read_length: 1
     };
 
     mkAutoFSM(seq
@@ -223,22 +245,33 @@ endmodule
 module mkI2cBitControlSequentialReadTest (Empty);
     Bench bench <- mkBench();
 
+    Command write_data = Command {
+        op: Write,
+        peripheral_addr: test_params.peripheral_addr,
+        register_addr: 8'hA5,
+        data: vec(tagged Valid 8'hAB, tagged Valid 8'hAD, tagged Valid 8'hBE),
+        read_length: 0
+    };
+
     Command write_read_addr = Command {
         op: Write,
         peripheral_addr: test_params.peripheral_addr,
         register_addr: 8'hA5,
-        data: vec(tagged Valid 8'h3C, tagged Invalid, tagged Invalid)
+        data: no_data,
+        read_length: 0
     };
 
     Command read = Command {
         op: Read,
         peripheral_addr: test_params.peripheral_addr,
         register_addr: 8'hFF,
-        data: no_data
+        data: no_data,
+        read_length: 3
     };
 
     mkAutoFSM(seq
         delay(200);
+        bench.command(write_data);
         bench.command(write_read_addr);
         bench.command(read);
         await(!bench.busy());
