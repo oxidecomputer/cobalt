@@ -107,7 +107,7 @@ module mkBitControl #(Integer core_clk_freq, Integer i2c_scl_freq) (BitControl);
     Reg#(Bool) read_finished    <- mkReg(False);
 
     (* fire_when_enabled *)
-    rule do_setup_delay(state == TransmitStart || state == TransmitStop);
+    rule do_setup_delay((state == TransmitStart || state == TransmitStop) && scl_out == 1);
         setup_strobe.send();
     endrule
 
@@ -158,14 +158,19 @@ module mkBitControl #(Integer core_clk_freq, Integer i2c_scl_freq) (BitControl);
         case (tuple2(state, e)) matches
 
             {AwaitStart, tagged Start}: begin
-                state <= TransmitStart;
+                sda_out <= 1;
+                state   <= TransmitStart;
                 incoming_events.deq();
             end
 
             {TransmitStart, .*}: begin
                 sda_out_en  <= 1;
-                sda_out     <= 0;
-                if (setup_strobe) begin
+
+                if (scl_redge) begin
+                    scl_active  <= False;
+                end else if (scl_out == 1 && !setup_strobe) begin
+                    sda_out     <= 0;
+                end else if (setup_strobe) begin
                     scl_active  <= True;
                     state       <= AwaitCommand;
                 end
@@ -194,6 +199,7 @@ module mkBitControl #(Integer core_clk_freq, Integer i2c_scl_freq) (BitControl);
 
             {ReceiveAck, .*}: begin
                 sda_out     <= 0;
+
                 if (scl_redge) begin
                     state       <= AwaitCommand;
                     incoming_events.deq();
@@ -260,6 +266,14 @@ module mkBitControl #(Integer core_clk_freq, Integer i2c_scl_freq) (BitControl);
                 if (setup_strobe) begin
                     sda_out     <= 1;
                     state   <= AwaitStart;
+                    incoming_events.deq();
+                end
+            end
+
+            {AwaitCommand, tagged Start}: begin
+                if (scl_fedge) begin
+                    sda_out <= 1;
+                    state   <= TransmitStart;
                     incoming_events.deq();
                 end
             end
@@ -439,17 +453,20 @@ module mkI2CPeripheralModel #(Bit#(7) i2c_address) (I2CPeripheralModel);
 
     (* fire_when_enabled *)
     rule do_receive_byte (state == ReceiveByte);
-        if (scl_redge) begin
+
+        if (stop_detected) begin
+            state <= AwaitStartByte;
+            outgoing_events.enq(tagged ReceivedStop);
+        end else if (start_detected && !scl_redge) begin
+            shift_bits  <= shift_bits_reset;
+            state       <= ReceiveStartByte;
+            outgoing_events.enq(tagged ReceivedStart);
+        end else if (scl_redge) begin
             case (last(shift_bits)) matches
                 tagged Invalid: begin
                     shift_bits <= shiftInAt0(shift_bits, tagged Valid sda_in);
                 end
             endcase
-        end
-
-        if (stop_detected) begin
-            state <= AwaitStartByte;
-            outgoing_events.enq(tagged ReceivedStop);
         end else begin
             case (last(shift_bits)) matches
                 tagged Valid .bit_: begin
