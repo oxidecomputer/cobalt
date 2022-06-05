@@ -103,7 +103,8 @@ bluesim_tests('SchmittRegTests',
     env = 'bluesim_default',
     suite = 'SchmittReg.bsv',
     modules = [
-        'mkFastEdgeSchmittRegTest',
+        'mkSlowEdgeSchmittRegTest',
+        'mkFastPositiveEdgeSchmittRegTest',
         'mkLongBounceSchmittRegTest',
     ])
 

@@ -1,4 +1,4 @@
-// Copyright 2021 Oxide Computer Company
+// Copyright 2022 Oxide Computer Company
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -16,8 +16,8 @@ import Vector::*;
 
 
 //
-// A schmitt trigger with Reg#(..) interface, intended to clean up noisy signals. The rergister
-// can be used with any single bit type.
+// A schmitt trigger with Reg#(..) interface, intended to clean up noisy
+// signals. The register can be used with any single bit type.
 //
 
 interface SchmittReg #(numeric type n_samples, type one_bit_type);
@@ -59,7 +59,8 @@ endfunction
 
 module mkSchmittReg#(
         one_bit_type init,
-        EdgePatterns#(n_samples) edge_patterns) (SchmittReg#(n_samples, one_bit_type))
+        EdgePatterns#(n_samples) edge_patterns)
+            (SchmittReg#(n_samples, one_bit_type))
             provisos (
                 Bits#(one_bit_type, 1));
     Reg#(one_bit_type) q <- mkReg(init);
@@ -71,7 +72,8 @@ endmodule
 
 module mkSchmittRegA#(
         one_bit_type init,
-        EdgePatterns#(n_samples) edge_patterns) (SchmittReg#(n_samples, one_bit_type))
+        EdgePatterns#(n_samples) edge_patterns)
+            (SchmittReg#(n_samples, one_bit_type))
             provisos (
                 Bits#(one_bit_type, 1));
     Reg#(one_bit_type) q <- mkRegA(init);
@@ -81,8 +83,9 @@ module mkSchmittRegA#(
     method Action _write(one_bit_type d) = update(q, ds, d, edge_patterns);
 endmodule
 
-module mkSchmittRegU#(
-        EdgePatterns#(n_samples) edge_patterns) (SchmittReg#(n_samples, one_bit_type))
+module mkSchmittRegU
+        #(EdgePatterns#(n_samples) edge_patterns)
+            (SchmittReg#(n_samples, one_bit_type))
             provisos (
                 Bits#(one_bit_type, 1));
     Reg#(one_bit_type) q <- mkRegU();
@@ -92,11 +95,38 @@ module mkSchmittRegU#(
     method Action _write(one_bit_type d) = update(q, ds, d, edge_patterns);
 endmodule
 
+// `mkSlowEdgeSchmittRegTest` tests a filter where three consequitive 0's or 1's
+// are required before the output generates a positive or negative edge.
 (* synthesize *)
-module mkFastEdgeSchmittRegTest (Empty);
+module mkSlowEdgeSchmittRegTest (Empty);
     let edge_patterns = EdgePatterns {
         negative_edge: 'b000,
-        positive_edge: 'b100,
+        positive_edge: 'b111,
+        mask: 'b111};
+
+    SchmittReg#(3, Bit#(1)) r <- mkSchmittReg(0, edge_patterns);
+
+    mkAutoFSM(seq
+        repeat(3) r <= 0;
+        dynamicAssert(r == 0, "Expected no change");
+        repeat(3) r <= 1;
+        dynamicAssert(r == 1, "Expected positive edge");
+        repeat(3) r <= 1;
+        dynamicAssert(r == 1, "Expected no change");
+        repeat(3) r <= 0;
+        dynamicAssert(r == 0, "Expected negative edge");
+    endseq);
+endmodule
+
+
+// `mkFastPositiveEdgeSchmittRegTest` tests a filter where the output
+// immediately reflects a positive edge on the input but requires three
+// consequitive 0's before showing a falling edge.
+(* synthesize *)
+module mkFastPositiveEdgeSchmittRegTest (Empty);
+    let edge_patterns = EdgePatterns {
+        negative_edge: 'b000,
+        positive_edge: 'b001,
         mask: 'b111};
 
     SchmittReg#(3, Bit#(1)) r <- mkSchmittReg(0, edge_patterns);
@@ -123,7 +153,7 @@ endmodule
 module mkLongBounceSchmittRegTest (Empty);
     let edge_patterns = EdgePatterns {
         negative_edge: 'b000,
-        positive_edge: 'b100,
+        positive_edge: 'b001,
         mask: 'b111};
 
     SchmittReg#(3, Bit#(1)) r <- mkSchmittReg(0, edge_patterns);
@@ -131,14 +161,13 @@ module mkLongBounceSchmittRegTest (Empty);
     mkAutoFSM(seq
         r <= 1;
         dynamicAssert(r == 1, "Expected positive edge");
+        // Bounce ten times.
         repeat(10) seq
             r <= 0;
             r <= 1;
             dynamicAssert(r == 1, "Expected no change");
         endseq
-        r <= 0;
-        r <= 0;
-        r <= 0;
+        repeat(3) r <= 0;
         dynamicAssert(r == 0, "Expected negative edge");
     endseq);
 endmodule
