@@ -108,8 +108,7 @@ VERILOG_FILES = [
     'SyncReset0.v',
     'SyncResetA.v',
     'SyncWire.v',
-    # TODO (arjen): Disabled until we figure out how to suppress the Yosys warning.
-    #'TriState.v',
+    'TriState.v',
     'UngatedClockMux.v',
     'UngatedClockSelect.v',
 ]
