@@ -62,7 +62,6 @@ def main():
 
     # make a path:
     out_path = Path(args.out_dir)
-    infile_name = Path(args.input_file).stem
 
     # Dump Jinja template-based outputs (filter out .json)
     templated_output_filenames = [Path(x) for x in args.outputs if '.json' not in x]

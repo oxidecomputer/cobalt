@@ -1,5 +1,7 @@
 from systemrdl import RegNode, FieldNode, RDLListener, AddrmapNode
 
+class UnsupportedRegisterSizeError(Exception):
+    pass
 
 class AddrMapListener(RDLListener):
     """
@@ -80,9 +82,11 @@ class Register:
         low index of the field. We then loop through the fields and
         determine the largest contiguous gaps in the definitions and creating
         ReservedFields that fill into these spaces. These are accumulated in
-        a gaps variable, and the gaps and fields are contactenated and
+        a gaps variable, and the gaps and fields are concatenated and
         re-sorted by low index again at the end.
         """
+        if self.width != 8:
+            raise UnsupportedRegisterSizeError(f"We only support 8bit registers at this time. Register {self.name} has a width of {self.width}")
         # sort fields descending by field.low bit
         self.fields.sort(key=lambda x: x.low, reverse=True)
         field_max_name = max(len(fld.name) for fld in self.fields)
