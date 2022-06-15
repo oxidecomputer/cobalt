@@ -68,6 +68,12 @@ class Register:
     def packed_fields(self):
         return [x for x in self.fields if not isinstance(x, ReservedField)]
 
+    @property
+    def has_reset_definition(self):
+        # Get the reset value for all the fields. If we don't see None in any of them we have defined reset behavior
+        a = [x.get_property('reset') for x in self.fields if not isinstance(x, ReservedField)]
+        return False if None in a else True
+
     def elaborate(self):
         """
         Register elaboration consists of sorting the defined fields by the
