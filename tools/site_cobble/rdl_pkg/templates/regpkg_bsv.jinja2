@@ -1,6 +1,7 @@
-
 // This is a generated file using the RDL tooling. Do not edit by hand.
 package {{ output_stem }};
+
+import DefaultValue::*;
 
 {# Loop registers building out BSV packages #}
 {% for register in registers %}
@@ -14,15 +15,6 @@ typedef struct {
     {% endfor %}
 {% set reg_name_camel = register.name|lower|to_camel_case(uppercamel=True) %}
 } {{ reg_name_camel }} deriving (Eq, FShow);
-{% if register.has_reset_definition %}
-// Reset value
-{{ reg_name_camel }} {{register.name|lower|to_camel_case}}SpecReset = {{ reg_name_camel }}  {
-    {% for field in register.packed_fields %}
-        {% set name =  register.format_field_name(field.name)|lower %}
-        {{ name }}: {{"unpack(" if field.width >1 else ""}}'h{{"{:x}".format(field.get_property('reset'))}}{{")" if field.width >1 else ""}}{{ ", " if not loop.last else "" }}
-    {% endfor %}
-};
-{% endif %}
 // Register offsets
 Integer {{register.name|lower|to_camel_case}}Offset = {{register.offset}};
 // Field mask definitions
@@ -53,6 +45,17 @@ instance Bits#({{reg_name_camel}}, {{register.width}});
     endfunction: unpack
 
 endinstance
+{% if register.has_reset_definition %}
+// Reset value
+instance DefaultValue #({{ reg_name_camel }});
+    defaultValue = {{ reg_name_camel }} {
+    {% for field in register.packed_fields %}
+        {% set name =  register.format_field_name(field.name)|lower %}
+        {{ name }}: {{"unpack(" if field.width >1 else ""}}'h{{"{:x}".format(field.get_property('reset'))}}{{")" if field.width >1 else ""}}{{ ", " if not loop.last else "" }}
+    {% endfor %}
+    };
+endinstance
+{% endif %}
 
 instance Bitwise#({{reg_name_camel}});
     function {{reg_name_camel}} \& ({{reg_name_camel}} i1, {{reg_name_camel}} i2) =
