@@ -3,53 +3,26 @@ import argparse
 import os
 from pathlib import Path
 
-from systemrdl import RDLCompiler, RDLCompileError, RDLListener, RDLWalker
+from systemrdl import RDLCompiler, RDLCompileError, RDLWalker
 from systemrdl.node import FieldNode
 
-from exporter import RegBlockExporter
+from exporter import MapExporter, MapofMapsExporter
+from listeners import PreExportListener, MyModelPrintingListener
 from json_dump import convert_to_json
 
 parser = argparse.ArgumentParser()
-parser.add_argument(dest='input_file', help='Input filename')
+parser.add_argument('--input', nargs="+", dest='input_file', help='Explicity input list')
 parser.add_argument('--out-dir', dest='out_dir', default=Path.cwd(), help='Output directory')
 parser.add_argument('--debug', action="store_true", default=False)
-parser.add_argument('outputs', nargs="*", help="Explicit output list")
-
-
-# Define a listener that will print out the register model hierarchy
-class MyModelPrintingListener(RDLListener):
-    def __init__(self):
-        self.indent = 0
-
-    # noinspection PyPep8Naming
-    def enter_Component(self, node):
-        if not isinstance(node, FieldNode):
-            print("\t"*self.indent, node.get_path_segment())
-            self.indent += 1
-
-    # noinspection PyPep8Naming
-    def enter_Reg(self, node):
-        print("\t"*self.indent, "Offset:", node.raw_address_offset)
-        print(node.get_property("name"))
-
-    # noinspection PyPep8Naming
-    def enter_Field(self, node):
-        # Print some stuff about the field
-        bit_range_str = "[%d:%d]" % (node.high, node.low)
-        sw_access_str = "sw=%s" % node.get_property("sw").name
-        print("\t"*self.indent, bit_range_str, node.get_path_segment(), sw_access_str)
-
-    # noinspection PyPep8Naming
-    def exit_Component(self, node):
-        if not isinstance(node, FieldNode):
-            self.indent -= 1
+parser.add_argument('--outputs', nargs="+", help="Explicit output list")
 
 
 def main():
     rdlc = RDLCompiler()
 
     try:
-        rdlc.compile_file(args.input_file)
+        for infile in args.input_file:
+            rdlc.compile_file(infile)
         root = rdlc.elaborate()
     except RDLCompileError:
         sys.exit(1)
@@ -60,13 +33,40 @@ def main():
         listener = MyModelPrintingListener()
         walker.walk(root, listener)
 
+
+    # Run the pre_export listener so we have a list of maps we need to generate
+    pre_export = PreExportListener()
+    RDLWalker().walk(root, pre_export)
+
     # make a path:
     out_path = Path(args.out_dir)
-
-    # Dump Jinja template-based outputs (filter out .json)
     templated_output_filenames = [Path(x) for x in args.outputs if '.json' not in x]
-    exporter = RegBlockExporter()
-    exporter.export(root, out_path, templated_output_filenames)
+    # For a map of maps, we're going to generate:
+    # Address offsets bsv using full address and flattening the naming
+    # Address offsets json using full address and flattening the naming??
+    # an HTML file of everything
+    if pre_export.is_map_of_maps:
+        # Dump Jinja template-based outputs (filter out .json)
+        
+        exporter = MapofMapsExporter()
+        exporter.export(pre_export.maps[0], out_path, templated_output_filenames)
+    else:
+        # For each standard map, we're going to generate:
+        # Standard bsv package from this base address
+        # Standard json package from this base address
+        # an HTML file of this block
+        # Dump Jinja template-based outputs (filter out .json)
+        templated_output_filenames = [Path(x) for x in args.outputs if '.json' not in x]
+        exporter = MapExporter()
+        exporter.export(pre_export.maps[0], out_path, templated_output_filenames)
+    
+
+
+
+
+
+
+    
     
     # Dump json output if requested
     json_files = [Path(x) for x in args.outputs if '.json' in x]

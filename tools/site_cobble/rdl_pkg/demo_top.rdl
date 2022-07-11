@@ -1,0 +1,6 @@
+addrmap top_level_map {
+    default regwidth = 8;
+    // Instantiate 2 gimlet maps to test nesting
+    gimlet_seq_fpga gimlet1;
+    gimlet_seq_fpga gimlet2;
+};

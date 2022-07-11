@@ -263,7 +263,11 @@
     {# Loop over registers #}
     {% for register in registers %}
     <tr class="Register">
+        {% if flatten_names %}
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="{{loop.index0}}">{{register.prefixed_name}}</a></td>
+        {% else %}
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="{{loop.index0}}">{{register.name}}</a></td>
+        {% endif %}
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 {{"{:#0x}".format(register.offset)}}

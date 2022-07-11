@@ -2,6 +2,21 @@
 // This is SystemRDL description of the sw-accesible registers in the Gimlet
 // Sequencer FPGA.
 
+regfile a_reg_block {
+    default regwidth = 8;
+    
+    reg {
+        name = "Identification 0";
+        default sw = r;
+        
+        field {
+            desc = "0x1";
+        } data[7:0] =  0x01;
+
+    } ID0;
+};
+
+
 addrmap gimlet_seq_fpga {
     name = "Gimlet Sequencer FPGA";
     desc = "Register description of the Gimlet Sequencer FPGA";
@@ -26,5 +41,8 @@ addrmap gimlet_seq_fpga {
             desc = "These bits enable the SPI interrupt and select the interrupt level";
         } INTLVL[1:0] = 0;
     } INTCTRL @ 0x1;
+
+    a_reg_block r0;
+    a_reg_block r1;
 
 };
