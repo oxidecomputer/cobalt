@@ -38,9 +38,8 @@ def main():
     pre_export = PreExportListener()
     RDLWalker().walk(root, pre_export)
 
-    # make a path:
-    out_path = Path(args.out_dir)
-    templated_output_filenames = [Path(x) for x in args.outputs if '.json' not in x]
+    output_filenames = [Path(x) for x in args.outputs]
+    output_filenames_no_json = [x for x in output_filenames if '.json' not in str(x)]
     # For a map of maps, we're going to generate:
     # Address offsets bsv using full address and flattening the naming
     # Address offsets json using full address and flattening the naming??
@@ -49,32 +48,22 @@ def main():
         # Dump Jinja template-based outputs (filter out .json)
         
         exporter = MapofMapsExporter()
-        exporter.export(pre_export.maps[0], out_path, templated_output_filenames)
+        exporter.export(pre_export.maps[0], output_filenames_no_json)
     else:
         # For each standard map, we're going to generate:
         # Standard bsv package from this base address
         # Standard json package from this base address
         # an HTML file of this block
-        # Dump Jinja template-based outputs (filter out .json)
-        templated_output_filenames = [Path(x) for x in args.outputs if '.json' not in x]
         exporter = MapExporter()
-        exporter.export(pre_export.maps[0], out_path, templated_output_filenames)
+        exporter.export(pre_export.maps[0], output_filenames_no_json)
     
-
-
-
-
-
-
-    
-    
-    # Dump json output if requested
-    json_files = [Path(x) for x in args.outputs if '.json' in x]
-    if len(json_files) == 1:
-        json_name = Path(json_files[0])
-        convert_to_json(rdlc, root, json_name)
-    elif len(json_files) > 1:
-        raise Exception(f'Specified too many .json outputs: {json_files.join(",")}')
+        # Dump json output if requested
+        json_files = [x for x in output_filenames if '.json' in str(x)]
+        if len(json_files) == 1:
+            json_name = Path(json_files[0])
+            convert_to_json(rdlc, root, json_name)
+        elif len(json_files) > 1:
+            raise Exception(f'Specified too many .json outputs: {json_files.join(",")}')
 
 args = parser.parse_args()
 

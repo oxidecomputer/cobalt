@@ -17,7 +17,7 @@ class Register:
         self.node = kwargs.pop('node')
         self.width = self.node.size * 8  # node.size is bytes, we want bits here
         self.name = self.node.get_path_segment()
-        self.type_name = self.node.get_path_segment()
+        self.type_name = self.node.type_name if self.node.orig_type_name is None else self.node.orig_type_name
         # Want offset from owning address map.
         self.offset = self.node.absolute_address
         self.fields = []

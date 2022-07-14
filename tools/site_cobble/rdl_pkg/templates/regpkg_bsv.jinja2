@@ -1,5 +1,5 @@
 // This is a generated file using the RDL tooling. Do not edit by hand.
-package {{ output_stem }};
+package {{ outputs.get_entity_name('.bsv') }};
 
 import DefaultValue::*;
 
@@ -20,9 +20,9 @@ Integer {{register.name|lower|to_camel_case}}Offset = {{register.offset}}; // st
 {% for register in registers %}
 {% set reserved_cntr = namespace(value=0) %}
 {% set reg_type_name_camel = register.type_name|lower|to_camel_case(uppercamel=True) %}
+{% if not register.repeated_type %}
 //
 // Register {{register.type_name}} definitions
-{% if not register.repeated_type %}
 typedef struct {
     {% for field in register.packed_fields %}
         {% set field_type = "Bit#({})".format(field.width) %}
@@ -92,4 +92,4 @@ instance Bitwise#({{reg_type_name_camel}});
 endinstance
 {% endif %}
 {% endfor %}
-endpackage: {{ output_stem }}
+endpackage: {{ outputs.get_entity_name('.bsv') }}

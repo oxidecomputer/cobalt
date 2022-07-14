@@ -13,23 +13,30 @@ from utils import to_camel_case, to_snake_case
 
 from typing import Any, Dict, Union, Optional, List
 
-
 class TemplatedOutput:
     known_templates = {
             '.bsv': 'regpkg_bsv.jinja2',
             '.html': 'regmap_html.jinja2',
             '.adoc': 'regmap_adoc.jinja2',
         }
-    def __init__(self, out_dir: PathLike, out_name: PathLike, template_name=None):
-        self.out_dir = out_dir
-        self.out_name = out_name
-        self.template_name = self.known_templates.get(self.out_name.suffix, None) if template_name is None else template_name
+    def __init__(self, out_name: PathLike, template_name=None):
+        self.full_output_path = out_name
+        self.template_name = self.known_templates.get(self.full_output_path.suffix, None) if template_name is None else template_name
         if self.template_name is None:
-            raise Exception(f'No known template for {str(self.out_name)} specified output')
+            raise Exception(f'No known template for {str(self.full_output_path.suffix)} specified output')
 
     @property
     def output_file(self):
         return self.out_dir / self.out_name.name
+
+class OutputUtils:
+    def __init__(self, outputs:List[TemplatedOutput]):
+        self.outputs = outputs
+
+    def get_entity_name(self, ext):
+        filtered = [x for x in self.outputs if ext in str(x.full_output_path)]
+        assert len(filtered) == 1
+        return filtered[0].full_output_path.stem
 
 
 class BaseExporter:
@@ -49,7 +56,7 @@ class BaseExporter:
         # Loop our templates outputting files as requested.
         for output in self.outputs:
             stream = self.env.get_template(output.template_name).stream(context)
-            stream.dump(str(output.output_file))
+            stream.dump(str(output.full_output_path))
 
     
 
@@ -62,7 +69,7 @@ class MapofMapsExporter(BaseExporter):
             self.env.get_template('regmap_html.jinja2'),
             ]
 
-    def export(self, node: Node, path: Union[str, PathLike], output_names: List[str], **kwargs: 'Dict[str, Any]') -> None:
+    def export(self, node: Node, output_names: List[PathLike], **kwargs: 'Dict[str, Any]') -> None:
         # Check for any stray kwargs
         if kwargs:
             raise TypeError(f"got an unexpected keyword argument '{list(kwargs.keys())[0]}")
@@ -74,25 +81,21 @@ class MapofMapsExporter(BaseExporter):
         if isinstance(node, RootNode):
             node = node.top
 
-        if Path(path).is_dir:
-            out_directory = Path(path)
-        else:
-            out_directory = Path(path).parent
-
          # Collect the requested outputs
         for name in output_names:
             if '.bsv' in str(name):
-                self.outputs.append(TemplatedOutput(out_directory, name, 'toplvl_bsv.jinja2'))
+                self.outputs.append(TemplatedOutput(name, 'toplvl_bsv.jinja2'))
             else:
-                self.outputs.append(TemplatedOutput(out_directory, name))
+                self.outputs.append(TemplatedOutput(name))
         
         # Walk the model and build a data structure in self.registers
         regs_block = BaseRegListener()
         RDLWalker().walk(node, regs_block)
 
+        out_utils = OutputUtils(self.outputs)
          # Inject some needed context into the Jinja templates
         context = {
-            'output_stem': 'TBC',
+            'outputs': out_utils,
             'map_name': node.inst_name,
             'Register': Register,
             'Field': Field,
@@ -114,7 +117,7 @@ class MapExporter(BaseExporter):
             self.env.get_template('regmap_html.jinja2'),
             ]
 
-    def export(self, node: Node, path: Union[str, PathLike], output_names: List[str], **kwargs: 'Dict[str, Any]') -> None:
+    def export(self, node: Node, output_names: List[PathLike], **kwargs: 'Dict[str, Any]') -> None:
         """
         Perform the export.
         :param node: Top-level node to export
@@ -129,22 +132,20 @@ class MapExporter(BaseExporter):
         if isinstance(node, RootNode):
             node = node.top
 
-        if Path(path).is_dir:
-            out_directory = Path(path)
-        else:
-            out_directory = Path(path).parent
-
          # Collect the requested outputs
         for name in output_names:
-            self.outputs.append(TemplatedOutput(out_directory, name))
+            self.outputs.append(TemplatedOutput(name))
+            if '.bsv' in str(name):
+                print(name.stem)
         
         # Walk the model and build a data structure in self.registers
         regs_block = BaseRegListener()
         RDLWalker().walk(node, regs_block)
 
          # Inject some needed context into the Jinja templates
+        out_utils = OutputUtils(self.outputs)
         context = {
-            'output_stem': 'TBD',
+            'outputs': out_utils,
             'map_name': node.inst_name,
             'Register': Register,
             'Field': Field,

@@ -78,12 +78,23 @@ class BaseRegListener(RDLListener):
         self.prefix_stack.pop()
 
     def enter_Reg(self, node: RegNode) -> None:
+        # print(f"orig type name: {node.orig_type_name}")
+        # print(f"new type name: {node.type_name}")
+        # print(f"segment: {node.get_path_segment()}")
         # print(f"Enter reg: {node.inst_name}")
         # print(f"stack: {self.prefix_stack}")
-        if node.type_name in self.known_types:
+        # 2 cases here:
+        # node.orig_type_name is None, use node.type_name
+        # 
+
+
+        if (node.type_name in self.known_types) or (node.orig_type_name is not None and node.orig_type_name in self.known_types):
             repeated_type = True
         else:
-            self.known_types.append(node.type_name)
+            if node.orig_type_name is not None:
+                self.known_types.append(node.orig_type_name)
+            else:
+                self.known_types.append(node.type_name)
             repeated_type = False
         self.cur_reg = Register.from_node(node, self.prefix_stack, repeated_type)
     
