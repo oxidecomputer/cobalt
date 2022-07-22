@@ -33,14 +33,14 @@ addrmap gimlet_seq_fpga {
         field {
             desc = "Second something bad bit";
         } ANOTHERBAD[2:2] = 0;
-    } STATUS @ 0x0;
+    } STATUS;
 
     reg {
         name = "Interrupt Control";
         field {
             desc = "These bits enable the SPI interrupt and select the interrupt level";
         } INTLVL[1:0] = 0;
-    } INTCTRL @ 0x1;
+    } INTCTRL;
 
     a_reg_block r0;
     a_reg_block r1;

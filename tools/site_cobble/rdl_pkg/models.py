@@ -1,3 +1,4 @@
+import copy
 from typing import Optional, List
 
 from systemrdl import RegNode, FieldNode, AddrmapNode
@@ -12,11 +13,10 @@ class Register:
         return cls(node=node, prefix_stack=prefix_stack, repeated_type=repeated_type)
 
     def __init__(self, **kwargs):
-        self.prefix = '_'.join(kwargs.pop('prefix_stack'))
+        self.prefix = copy.deepcopy(kwargs.pop('prefix_stack'))
         self.repeated_type = kwargs.pop('repeated_type')
         self.node = kwargs.pop('node')
         self.width = self.node.size * 8  # node.size is bytes, we want bits here
-        self.name = self.node.get_path_segment()
         self.type_name = self.node.type_name if self.node.orig_type_name is None else self.node.orig_type_name
         # Want offset from owning address map.
         self.offset = self.node.absolute_address
@@ -25,7 +25,12 @@ class Register:
 
     @property
     def prefixed_name(self):
-        return self.prefix + '_' + self.name
+        return '_'.join(self.prefix) + '_' + self.node.get_path_segment()
+
+    @property
+    def name(self):
+        # We're generating address maps but we can skip the first address map name, but we want the rest of the elaboration
+        return '_'.join(self.prefix[1:]) + '_' + self.node.get_path_segment() if len(self.prefix) > 1 else self.node.get_path_segment()
 
     @property
     def packed_fields(self):
