@@ -2,6 +2,21 @@
 // This is SystemRDL description of the sw-accesible registers in the Gimlet
 // Sequencer FPGA.
 
+regfile a_reg_block {
+    default regwidth = 8;
+    
+    reg {
+        name = "Identification 0";
+        default sw = r;
+        
+        field {
+            desc = "0x1";
+        } data[7:0] =  0x01;
+
+    } ID0;
+};
+
+
 addrmap gimlet_seq_fpga {
     name = "Gimlet Sequencer FPGA";
     desc = "Register description of the Gimlet Sequencer FPGA";
@@ -18,13 +33,43 @@ addrmap gimlet_seq_fpga {
         field {
             desc = "Second something bad bit";
         } ANOTHERBAD[2:2] = 0;
-    } STATUS @ 0x0;
+    } STATUS;
 
     reg {
         name = "Interrupt Control";
         field {
             desc = "These bits enable the SPI interrupt and select the interrupt level";
         } INTLVL[1:0] = 0;
-    } INTCTRL @ 0x1;
+    } INTCTRL;
+
+    a_reg_block r0;
+    a_reg_block r1;
+
+    reg a1_output_type {
+        name = "A1 Outputs";
+        default sw = r;
+
+        field {
+            desc = "Enables V3P3_SP3_VDD_33_S5_A1 rail (SEQ_TO_SP3_V3P3_S5_EN pin)";
+        } V3P3_S5_EN[1] = 0;
+        field {
+            desc = "Enables V1P5_SP3_VDD_RTC_A1 rail (SEQ_TO_SP3_V1P5_RTC_EN pin)";
+        } V1P5_RTC_EN[1] = 0;
+        field {
+            desc = "Enables V1P8_SP3_VDD_18_S5_A1 rail (SEQ_TO_SP3_V1P8_S5_EN pin)";
+        } V1P8_S5_EN[1] = 0;
+        field {
+            desc = "Enables V0P9_SP3_VDD_SOC_S5_A1 rail (SEQ_TO_SP3_V0P9_S5_EN pin)";
+        } V0P9_S5_EN[1] = 0;
+        field {
+            desc = "De-asserted to processor after GroupA supplies are stable (10ms after S5 rails minimum) 
+            (SEQ_TO_SP3_RSMRST_V3P3_L net inverted from this register)";
+        } RSMRST[1] = 0;
+    };
+
+    a1_output_type A1_OUT_STATUS;
+    A1_OUT_STATUS->name = "A1 Output readbacks";
+    a1_output_type A1_DBG_OUT;
+    A1_DBG_OUT->name = "A1 Output debug control";
 
 };

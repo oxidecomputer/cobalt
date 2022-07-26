@@ -80,7 +80,7 @@ def rdl(package, name, *,
 
 ninja_rules = {
     'rdl_script': {
-        'command': ' python3 $rdl_script --out-dir $rdl_odir $in $out',
+        'command': ' python3 $rdl_script --input $in --output $out',
         'description': 'making rdl outputs',
     }
 }
