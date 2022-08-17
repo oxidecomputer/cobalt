@@ -263,7 +263,9 @@
     {# Loop over registers #}
     {% for register in registers %}
     <tr class="Register">
-        {% if flatten_names %}
+        {% if isinstance(register, Memory) %}
+        <td class="RegisterName" colspan="3*">&nbsp;{{register.name}}</td>
+        {% elif flatten_names %}
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="{{loop.index0}}">{{register.prefixed_name}}</a></td>
         {% else %}
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="{{loop.index0}}">{{register.name}}</a></td>
@@ -276,7 +278,11 @@
                 {#<div style="float:right;width:49%;text-align:right">(0)</div>#}
         </td>
         <td class="Slice" colspan="1*"></td>
+        {% if isinstance(register, Memory) %}
+        <td class="Description" colspan="16">&nbsp;Number of entries: {{register.get_property("mementries")}}</td>
+        {% else %}
         <td class="Description" colspan="16">&nbsp;{{register.get_property("name")}}</td>
+        {% endif %}
     </tr>
     {# Loop over bytes/Fields #}
     <!-- Loop over bytes in register !-->

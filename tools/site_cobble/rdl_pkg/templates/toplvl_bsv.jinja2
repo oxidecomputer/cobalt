@@ -7,6 +7,10 @@ package {{ outputs.get_entity_name('.bsv') }};
 {% for register in registers %}
 {% set reserved_cntr = namespace(value=0) %}
 {% set reg_type_name_camel = register.type_name|lower|to_camel_case(uppercamel=True) %}
-Integer {{register.prefixed_name|lower|to_camel_case}}Offset = {{register.offset}}; // struct {{reg_type_name_camel}}
+{% if isinstance(register, Register) %}
+Integer {{register.name|lower|to_camel_case}}Offset = {{register.offset}}; // struct {{reg_type_name_camel}}
+{% elif isinstance(register, Memory) %}
+Integer {{register.name|lower|to_camel_case}}Offset = {{register.offset}}; // mem {{register.type_name}}
+{% endif %}
 {% endfor %}
 endpackage: {{ outputs.get_entity_name('.bsv') }}

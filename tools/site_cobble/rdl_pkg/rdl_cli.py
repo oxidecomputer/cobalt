@@ -46,7 +46,6 @@ def main():
     # an HTML file of everything
     if pre_export.is_map_of_maps:
         # Dump Jinja template-based outputs (filter out .json)
-        
         exporter = MapofMapsExporter()
         exporter.export(pre_export.maps[0], output_filenames_no_json)
     else:
@@ -56,7 +55,7 @@ def main():
         # an HTML file of this block
         exporter = MapExporter()
         exporter.export(pre_export.maps[0], output_filenames_no_json)
-    
+
         # Dump json output if requested
         json_files = [x for x in output_filenames if '.json' in str(x)]
         if len(json_files) == 1:

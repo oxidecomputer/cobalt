@@ -1,6 +1,5 @@
 // Copyright 2022 Oxide Computer Company
-// This is SystemRDL description of the sw-accesible registers in the Gimlet
-// Sequencer FPGA.
+// This is an example SystemRDL description of the sw-accesible registers
 
 regfile a_reg_block {
     default regwidth = 8;
@@ -16,10 +15,9 @@ regfile a_reg_block {
     } ID0;
 };
 
-
-addrmap gimlet_seq_fpga {
-    name = "Gimlet Sequencer FPGA";
-    desc = "Register description of the Gimlet Sequencer FPGA";
+addrmap an_addr_block {
+    name = "Example Address Map";
+    desc = "An address map which is a useful example for code generation.";
 
     default regwidth = 8;
     default sw = rw;
@@ -38,38 +36,39 @@ addrmap gimlet_seq_fpga {
     reg {
         name = "Interrupt Control";
         field {
-            desc = "These bits enable the SPI interrupt and select the interrupt level";
+            desc = "These bits enable the interrupt and select the interrupt level";
         } INTLVL[1:0] = 0;
     } INTCTRL;
 
     a_reg_block r0;
     a_reg_block r1;
 
-    reg a1_output_type {
-        name = "A1 Outputs";
+    reg output_regs_type {
+        name = "Output Registers";
         default sw = r;
 
         field {
-            desc = "Enables V3P3_SP3_VDD_33_S5_A1 rail (SEQ_TO_SP3_V3P3_S5_EN pin)";
-        } V3P3_S5_EN[1] = 0;
+            desc = "Enables Voltage Regulator 1";
+        } VR1_EN[1] = 0;
         field {
-            desc = "Enables V1P5_SP3_VDD_RTC_A1 rail (SEQ_TO_SP3_V1P5_RTC_EN pin)";
-        } V1P5_RTC_EN[1] = 0;
+            desc = "Enables Voltage Regulator 0";
+        } VR0_EN[1] = 0;
         field {
-            desc = "Enables V1P8_SP3_VDD_18_S5_A1 rail (SEQ_TO_SP3_V1P8_S5_EN pin)";
-        } V1P8_S5_EN[1] = 0;
-        field {
-            desc = "Enables V0P9_SP3_VDD_SOC_S5_A1 rail (SEQ_TO_SP3_V0P9_S5_EN pin)";
-        } V0P9_S5_EN[1] = 0;
-        field {
-            desc = "De-asserted to processor after GroupA supplies are stable (10ms after S5 rails minimum) 
-            (SEQ_TO_SP3_RSMRST_V3P3_L net inverted from this register)";
-        } RSMRST[1] = 0;
+            desc = "Reset bit";
+        } RST[1] = 0;
     };
 
-    a1_output_type A1_OUT_STATUS;
-    A1_OUT_STATUS->name = "A1 Output readbacks";
-    a1_output_type A1_DBG_OUT;
-    A1_DBG_OUT->name = "A1 Output debug control";
+    output_regs_type OUTPUT_0;
+    OUTPUT_0->name = "Output block 0";
+    output_regs_type OUTPUT_1;
+    OUTPUT_1->name = "Output block 1";
+
+    mem example_mem {
+        mementries = 16;
+        memwidth = 8;
+    };
+
+    external example_mem mem1;
+    external example_mem mem2;
 
 };

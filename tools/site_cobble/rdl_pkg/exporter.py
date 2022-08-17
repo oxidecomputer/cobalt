@@ -7,11 +7,11 @@ from jinja2 import Environment, FileSystemLoader
 from systemrdl.node import RootNode, Node
 from systemrdl import RDLWalker
 
-from models import Register, Field, ReservedField
-from listeners import BaseRegListener
+from models import Register, Field, ReservedField, Memory
+from listeners import BaseListener
 from utils import to_camel_case, to_snake_case
 
-from typing import Any, Dict, Union, Optional, List
+from typing import Any, Dict, List
 
 class TemplatedOutput:
     known_templates = {
@@ -58,7 +58,6 @@ class BaseExporter:
             stream = self.env.get_template(output.template_name).stream(context)
             stream.dump(str(output.full_output_path))
 
-    
 
 class MapofMapsExporter(BaseExporter):
     def __init__(self, **kwargs):
@@ -87,10 +86,10 @@ class MapofMapsExporter(BaseExporter):
                 self.outputs.append(TemplatedOutput(name, 'toplvl_bsv.jinja2'))
             else:
                 self.outputs.append(TemplatedOutput(name))
-        
+
         # Walk the model and build a data structure in self.registers
-        regs_block = BaseRegListener()
-        RDLWalker().walk(node, regs_block)
+        addr_map = BaseListener()
+        RDLWalker().walk(node, addr_map)
 
         out_utils = OutputUtils(self.outputs)
          # Inject some needed context into the Jinja templates
@@ -100,12 +99,12 @@ class MapofMapsExporter(BaseExporter):
             'Register': Register,
             'Field': Field,
             'ReservedField': ReservedField,
+            'Memory': Memory,
             'isinstance': isinstance,
-            'registers': regs_block.registers,
+            'registers': addr_map.registers,
             'flatten_names': True,
         }
         self._write_files(context)
-
 
 
 class MapExporter(BaseExporter):
@@ -135,12 +134,10 @@ class MapExporter(BaseExporter):
          # Collect the requested outputs
         for name in output_names:
             self.outputs.append(TemplatedOutput(name))
-            if '.bsv' in str(name):
-                print(name.stem)
-        
+
         # Walk the model and build a data structure in self.registers
-        regs_block = BaseRegListener()
-        RDLWalker().walk(node, regs_block)
+        addr_map = BaseListener()
+        RDLWalker().walk(node, addr_map)
 
          # Inject some needed context into the Jinja templates
         out_utils = OutputUtils(self.outputs)
@@ -150,8 +147,9 @@ class MapExporter(BaseExporter):
             'Register': Register,
             'Field': Field,
             'ReservedField': ReservedField,
+            'Memory': Memory,
             'isinstance': isinstance,
-            'registers': regs_block.registers,
+            'registers': addr_map.registers,
             'flatten_names': False,
         }
 

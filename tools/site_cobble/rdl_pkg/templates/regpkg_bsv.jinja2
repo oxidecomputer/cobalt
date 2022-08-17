@@ -10,7 +10,11 @@ import DefaultValue::*;
 {% for register in registers %}
 {% set reserved_cntr = namespace(value=0) %}
 {% set reg_type_name_camel = register.type_name|lower|to_camel_case(uppercamel=True) %}
+{% if isinstance(register, Register) %}
 Integer {{register.name|lower|to_camel_case}}Offset = {{register.offset}}; // struct {{reg_type_name_camel}}
+{% elif isinstance(register, Memory) %}
+Integer {{register.name|lower|to_camel_case}}Offset = {{register.offset}}; // mem {{register.type_name}}
+{% endif %}
 {% endfor %}
 
 
@@ -20,20 +24,20 @@ Integer {{register.name|lower|to_camel_case}}Offset = {{register.offset}}; // st
 {% for register in registers %}
 {% set reserved_cntr = namespace(value=0) %}
 {% set reg_type_name_camel = register.type_name|lower|to_camel_case(uppercamel=True) %}
-{% if not register.repeated_type %}
+{% if not register.repeated_type and isinstance(register, Register) %}
 //
 // Register {{register.type_name}} definitions
 typedef struct {
     {% for field in register.packed_fields %}
         {% set field_type = "Bit#({})".format(field.width) %}
         {% set name =  register.format_field_name(field.name)|lower %}
-        {{ "{:<18}".format(field_type)}} {{ name }};  // bit {{field.bitslice_str()}}    
+    {{ "{:<18}".format(field_type)}} {{ name }};  // bit {{field.bitslice_str()}}    
     {% endfor %}
 } {{ reg_type_name_camel }} deriving (Eq, FShow);
 // Field mask definitions
     {% for field in register.fields %}
         {% if not isinstance(field, ReservedField) %}
-    Bit#({{register.width}}) {{register.name|lower|to_camel_case}}{{register.format_field_name(field.name)|lower|to_camel_case(uppercamel=True)}} = 'h{{field.mask}};
+Bit#({{register.width}}) {{register.name|lower|to_camel_case}}{{register.format_field_name(field.name)|lower|to_camel_case(uppercamel=True)}} = 'h{{field.mask}};
         {% endif %}
     {% endfor %}
 // Register {{register.type_name}} custom type-classes
@@ -91,5 +95,16 @@ instance Bitwise#({{reg_type_name_camel}});
         error("lsb operation is not supported with type {{reg_type_name_camel}}");
 endinstance
 {% endif %}
+{% endfor %}
+
+// --------
+// Memories
+// --------
+{% for register in registers %}
+    {% if not register.repeated_type and isinstance(register, Memory) %}
+// Memory {{register.type_name}} definitions
+Integer {{register.type_name|lower|to_camel_case}}NumEntries = {{register.node.get_property('mementries')}};
+Integer {{register.type_name|lower|to_camel_case}}BitWidth = {{register.node.get_property('memwidth')}};
+    {% endif %}
 {% endfor %}
 endpackage: {{ outputs.get_entity_name('.bsv') }}
