@@ -1,13 +1,13 @@
 import copy
-from typing import Optional, List
+from typing import List
 
-from systemrdl import RegNode, FieldNode, AddrmapNode
+from systemrdl import RegNode, FieldNode, MemNode
 
 class UnsupportedRegisterSizeError(Exception):
     pass
 
 
-class Register:
+class BaseModel:
     @classmethod
     def from_node(cls, node: RegNode, prefix_stack, repeated_type=False):
         return cls(node=node, prefix_stack=prefix_stack, repeated_type=repeated_type)
@@ -31,6 +31,20 @@ class Register:
     def name(self):
         # We're generating address maps but we can skip the first address map name, but we want the rest of the elaboration
         return '_'.join(self.prefix[1:]) + '_' + self.node.get_path_segment() if len(self.prefix) > 1 else self.node.get_path_segment()
+
+    def get_property(self, *args, **kwargs):
+        """
+        Helper function to get RDL property from this register node.
+        """
+        try:
+            prop = self.node.get_property(*args, **kwargs)
+        except AttributeError:
+            prop = ""
+        return prop
+
+class Register(BaseModel):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
     @property
     def packed_fields(self):
@@ -90,16 +104,6 @@ class Register:
         "field" level so the templates can use this function as necessary.
         """
         return f"{name:<{self._max_field_name_chars}}"
-    
-    def get_property(self, *args, **kwargs):
-        """
-        Helper function to get RDL property from this register node.
-        """
-        try:
-            prop = self.node.get_property(*args, **kwargs)
-        except AttributeError:
-            prop = ""
-        return prop
 
 
 class BaseField:
@@ -149,3 +153,7 @@ class ReservedField(BaseField):
         self.low = low
         self.desc = 'Reserved'
 
+
+class Memory(BaseModel):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
