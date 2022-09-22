@@ -32,7 +32,7 @@ import json
 from os import PathLike
 from typing import Union
 from systemrdl import RDLCompiler
-from systemrdl.node import RootNode, FieldNode, AddrmapNode, RegfileNode, RegNode
+from systemrdl.node import RootNode, FieldNode, AddrmapNode, RegfileNode, RegNode, MemNode
 
 
 def convert_to_json(rdlc: RDLCompiler, obj: RootNode, path: Union[str, PathLike]):
@@ -83,6 +83,16 @@ def convert_reg(rdlc: RDLCompiler, obj: RegNode) -> dict:
 
     return json_obj
 
+def convert_mem(obj: MemNode) -> dict:
+    json_obj = dict()
+    json_obj['type'] = 'mem'
+    json_obj['inst_name'] = obj.inst_name
+    json_obj['addr_offset'] = obj.address_offset
+    json_obj['memwidth'] = obj.get_property('memwidth')
+    json_obj['mementries'] = obj.get_property('mementries')
+
+    return json_obj
+
 
 def convert_addrmap_or_regfile(rdlc: RDLCompiler, obj: Union[AddrmapNode, RegfileNode]) -> dict:
     if obj.is_array:
@@ -108,6 +118,10 @@ def convert_addrmap_or_regfile(rdlc: RDLCompiler, obj: Union[AddrmapNode, Regfil
             json_child = convert_addrmap_or_regfile(rdlc, child)
         elif isinstance(child, RegNode):
             json_child = convert_reg(rdlc, child)
+        elif isinstance(child, MemNode):
+            json_child = convert_mem(child)
+        else:
+            raise RuntimeError("Unknown child type seen during JSON generation.")
 
         json_obj['children'].append(json_child)
 
