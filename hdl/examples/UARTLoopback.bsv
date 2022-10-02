@@ -107,8 +107,8 @@ module mkUARTLoopbackTest (Empty);
     mkAutoFSM(seq
         ser.in.put('h55);
         ser.in.put('hAA);
-        assert_get_and_display_fshow(des.out, 'h55, "expected 0x55");
-        assert_get_and_display_fshow(des.out, 'hAA, "expected 0xAA");
+        assert_get_eq_display(des.out, 'h55, "expected 0x55");
+        assert_get_eq_display(des.out, 'hAA, "expected 0xAA");
     endseq);
 
     mkTestWatchdog(10000);
