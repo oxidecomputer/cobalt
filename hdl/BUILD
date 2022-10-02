@@ -77,6 +77,11 @@ bluespec_library('TestUtils',
         'TestUtils.bsv',
     ])
 
+bluespec_library('WriteOnceReg',
+    sources = [
+        'WriteOnceReg.bsv',
+    ])
+
 # Tests
 
 bluesim_tests('CountdownTest',
