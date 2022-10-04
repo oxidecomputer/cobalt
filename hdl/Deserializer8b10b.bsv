@@ -6,13 +6,16 @@
 
 package Deserializer8b10b;
 
-export DeserializedCharacter;
+export DeserializedCharacter(..);
 export Deserializer(..);
 export mkDeserializer;
 
 import GetPut::*;
-import FIFO::*:
+import FIFO::*;
 import FIFOF::*;
+import Vector::*;
+
+import Encoding8b10b::*;
 
 
 typedef struct {
@@ -26,7 +29,7 @@ interface Deserializer;
     // Use a `GetS` interface in order to allow downstream logic to determine
     // when it is ready for the next character.
     interface GetS#(DeserializedCharacter) character;
-    interface Put#(Bit#(1)) bit;
+    interface Put#(Bit#(1)) serial;
 
     // Slip incoming bits until a comma pattern is detected in the bit stream.
     method Action search_for_comma();
@@ -56,7 +59,7 @@ module mkDeserializer (Deserializer);
 
     interface GetS character = fifoToGetS(fifofToFifo(out));
 
-    interface Put bit;
+    interface Put serial;
         method Action put(Bit#(1) b);
             // Enqueue a character when searching for a comma and a comma has
             // been determine to be in the buffer or when (the next) ten bits

@@ -10,6 +10,9 @@ export Serializer(..);
 export mkSerializer;
 
 import GetPut::*;
+import Vector::*;
+
+import Encoding8b10b::*;
 
 
 //
@@ -18,7 +21,7 @@ import GetPut::*;
 
 interface Serializer;
     interface Put#(Character) character;
-    interface Get#(Bit#(1)) bit;
+    interface Get#(Bit#(1)) serial;
 endinterface
 
 module mkSerializer (Serializer);
@@ -52,7 +55,7 @@ module mkSerializer (Serializer);
         endmethod
     endinterface
 
-    interface Get bit;
+    interface Get serial;
         method ActionValue#(Bit#(1)) get() if (!empty);
             shift.send();
             return head(buffer);

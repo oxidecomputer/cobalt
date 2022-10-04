@@ -16,7 +16,7 @@ export mk_k;
 export is_d;
 export is_k;
 
-export Character;
+export Character(..);
 export mk_c;
 
 export Result(..);
