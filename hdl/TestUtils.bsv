@@ -19,20 +19,26 @@ export assert_av_true;
 export assert_av_false;
 export assert_av_eq;
 export assert_av_not_eq;
+export assert_av_any;
 export assert_av_eq_display;
 export assert_av_not_eq_display;
+export assert_av_any_display;
 export assert_av_eq_display_fmt;
 export assert_av_not_eq_display_fmt;
+export assert_av_any_display_fmt;
 export assert_get_set;
 export assert_get_not_set;
 export assert_get_true;
 export assert_get_false;
 export assert_get_eq;
 export assert_get_not_eq;
+export assert_get_any;
 export assert_get_eq_display;
 export assert_get_not_eq_display;
+export assert_get_any_display;
 export assert_get_eq_display_fmt;
 export assert_get_not_eq_display_fmt;
+export assert_get_any_display_fmt;
 
 export TestResult(..);
 export Test(..);
@@ -166,6 +172,17 @@ function Action assert_av_not_eq(ActionValue#(t) av, t expected, String msg)
 endfunction
 
 //
+// `assert_av_any(..)` collects any value from the given `ActionValue`. It does
+// not assert anything about this action, but provides some syntactic sugar when
+// writing tests that involve "don't care" values.
+//
+function Action assert_av_any(ActionValue#(t) av);
+    return action
+        let _ <- av;
+    endaction;
+endfunction
+
+//
 // `assert_av_eq_display(..)`/`assert_av_not_eq_display(..) assert that the
 // result of the given `ActionValue` does or does not match an expected
 // result respectively. If the assertion holds, the resulting value is
@@ -194,6 +211,21 @@ function Action assert_av_not_eq_display(
         let actual <- av;
         if (actual != expected) $display(fshow(actual));
         assert_not_eq(actual, expected, msg);
+    endaction;
+endfunction
+
+//
+// `assert_av_any_display(..)` collects and displays any value from the given
+// `ActionValue`. It does not assert anything about this action, but provides
+// some syntactic sugar when writing tests that involve "don't care" values.
+//
+function Action assert_av_any_display(ActionValue#(t) av)
+        provisos (
+            Eq#(t),
+            FShow#(t));
+    return action
+        let v <- av;
+        $display(fshow(v));
     endaction;
 endfunction
 
@@ -237,6 +269,23 @@ function Action assert_av_not_eq_display_fmt(
             $display("value: ", fmt(actual));
         end
         assert_true(actual != expected, msg);
+    endaction;
+endfunction
+
+//
+// `assert_av_any_display_fmt(..)` collects and display using the given format
+// function any value from the given `ActionValue`. It does not assert anything
+// about this action, but provides some syntactic sugar when writing tests that
+// involve "don't care" values.
+//
+function Action assert_av_any_display_fmt(
+        ActionValue#(t) av,
+        function Fmt fmt(t v))
+            provisos (
+                Eq#(t));
+    return action
+        let v <- av;
+        $display(fmt(v));
     endaction;
 endfunction
 
@@ -287,6 +336,15 @@ function Action assert_get_not_eq(Get#(t) g, t expected, String msg)
 endfunction
 
 //
+// `assert_get_any(..)` collects any value from the given `Get` interface. It
+// does not assert anything about this action, but provides some syntactic sugar
+// when writing tests that involve "don't care" values.
+//
+function Action assert_get_any(Get#(t) g);
+    return assert_av_any(g.get);
+endfunction
+
+//
 // `assert_get_eq_display(..)`/`assert_get_not_eq_display(..)` assert that the
 // value from a `Get` interface does or does not match an expected result
 // respectively. If the assertion holds, the resulting value is displayed. If
@@ -305,6 +363,18 @@ function Action assert_get_not_eq_display(Get#(t) g, t expected, String msg)
             Eq#(t),
             FShow#(t));
     return assert_av_not_eq_display(g.get, expected, msg);
+endfunction
+
+//
+// `assert_get_any_display(..)` collects and display any value from the given
+// `Get` interface. It does not assert anything about this action, but provides
+// some syntactic sugar when writing tests that involve "don't care" values.
+//
+function Action assert_get_any_display(Get#(t) g)
+        provisos (
+            Eq#(t),
+            FShow#(t));
+    return assert_av_any_display(g.get);
 endfunction
 
 //
@@ -330,6 +400,19 @@ function Action assert_get_not_eq_display_fmt(
         function Fmt fmt(t v))
             provisos (Eq#(t));
     return assert_av_not_eq_display_fmt(g.get, expected, msg, fmt);
+endfunction
+
+//
+// `assert_get_any_display_fmt(..)` collects and display using the given format
+// function any value from the given `Get` interface. It does not assert
+// anything about this action, but provides some syntactic sugar when writing
+// tests that involve "don't care" values.
+//
+function Action assert_get_any_display_fmt(
+        Get#(t) g,
+        function Fmt fmt(t v))
+            provisos (Eq#(t));
+    return assert_av_any_display_fmt(g.get, fmt);
 endfunction
 
 //
