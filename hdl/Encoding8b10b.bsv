@@ -18,6 +18,7 @@ export is_k;
 
 export Character(..);
 export mk_c;
+export invert_character;
 
 export Result(..);
 export ValueResult(..);
@@ -81,6 +82,9 @@ typedef struct {
 // Construct a Character from the given 10 bit value. The input is reversed such
 // that the resulting Character is MSB first.
 function Character mk_c(Bit#(10) c) = Character {x: reverseBits(c)};
+
+// Bit-invert the given Character c.
+function Character invert_character(Character c) = Character {x: ~c.x};
 
 //
 // Result

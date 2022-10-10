@@ -5,6 +5,7 @@ export toCharacter;
 export lookup_d;
 export lookup_k;
 export valid_k;
+export is_comma;
 export encode;
 
 import Encoding8b10b::*;
@@ -316,6 +317,11 @@ endfunction
 // Determine if the given Value v is a valid K value.
 function Bool valid_k(Value v);
     return is_k(v) && isValid(lookup_k(value_bits(v)));
+endfunction
+
+// Determine if the given Value v is a comma character.
+function Bool is_comma(Value v);
+    return v == mk_k(28, 1) || v == mk_k(28, 5) || v == mk_k(28, 7);
 endfunction
 
 //
