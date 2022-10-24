@@ -36,13 +36,9 @@ bluespec_library('Countdown',
 
 bluespec_library('Encoding8b10b',
     sources = [
+        'Deserializer8b10b.bsv',
         'Encoding8b10b.bsv',
-        'Encoder8b10b.bsv',
-        'Decoder8b10b.bsv',
-    ],
-    deps = [
-        ':BitSampling',
-        ':TestUtils',
+        'Serializer8b10b.bsv',
     ])
 
 bluespec_library('InitialReset',
