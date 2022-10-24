@@ -60,7 +60,8 @@ function Bit#(8) value_bits(Value v) = pack(v)[7:0];
 function Value mk_d(Bit#(5) x, Bit#(3) y) = tagged D({y, x});
 function Value mk_k(Bit#(5) x, Bit#(3) y) = tagged K({y, x});
 
-// Tests to determine whether or not a given Value is of type K or D respectively.
+// Tests to determine whether or not a given Value is of type K or D
+// respectively.
 function Bool is_d(Value v) =
     case (v) matches
         tagged D .*: True;
@@ -72,15 +73,17 @@ function Bool is_k(Value v) = !is_d(v);
 // `Character`
 //
 // A type representing a 10 bit encoded value, sometimes referred to as a
-// character. Note: while not enforced in any way, these characters are
-// transmitted MSB first.
+// character. Note: while not enforced in any way, these characters are expected
+// to be in jhgf_iedcba bit order allowing them to be shifted out lsb first
+// during transmission. Most (all?) "paper" encoding tables show these in
+// abcdei_fghj order, so keep this in mind when debugging.
 //
 typedef struct {
     Bit#(10) x;
 } Character deriving (Literal, Bits, Eq);
 
 // Construct a Character from the given 10 bit value. The input is reversed such
-// that the resulting Character is MSB first.
+// that the resulting Character is in jhgf_iedcba bit order.
 function Character mk_c(Bit#(10) c) = Character {x: reverseBits(c)};
 
 // Bit-invert the given Character c.
