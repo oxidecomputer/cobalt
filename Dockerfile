@@ -1,4 +1,4 @@
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 ARG USERNAME=dev
 ARG UID=1000
@@ -9,17 +9,16 @@ ARG INSTALL_PREFIX=/usr/local
 
 # Pinned versions to caching these images.
 ARG BSC_URL=https://github.com/B-Lang-org/bsc.git
-ARG BSC_SHA=61dc0ebbbea3a853d061556ae8828dc16e687e40
+ARG BSC_SHA=2005df70feb6160804399f69c26c803697aa6306
 ARG BSC_CONTRIB_URL=https://github.com/B-Lang-org/bsc-contrib.git
-ARG BSC_CONTRIB_SHA=d2b17aab4f2eacb79816624017961144de6e231f
+ARG BSC_CONTRIB_SHA=aa205330885f6955e24fd99a0319e2733b5353f1
 
-ARG OSS_CAD_RELEASE_URL=https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2021-12-28/oss-cad-suite-linux-ARCH-20211228.tgz
+ARG OSS_CAD_RELEASE_URL=https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2022-12-05/oss-cad-suite-linux-ARCH-20221205.tgz
 
 # Create a non-root user, owning /home
 RUN groupadd --gid $GID $USERNAME && \
     useradd --uid $UID --gid $GID -d $HOME $USERNAME && \
     chown $UID:$GID $HOME && \
-
     # Add sudo support, just in case.
     mkdir -p /etc/sudoers.d && \
     echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME && \
@@ -63,14 +62,11 @@ RUN DPKG_ARCH="$(/usr/bin/dpkg --print-architecture)" && \
         arm64) ARCH='arm64';; \
         *) echo "Unsupported Architecture"; exit 1 ;; \
     esac && \
-
     # Push OSS_CAD_RELEASE_URL contents into Bash context.
     URL=$OSS_CAD_RELEASE_URL && \
-
     # Fetch and install tarball.
     wget --progress=bar:force:noscroll ${URL//ARCH/${ARCH}} -O /tmp/oss-cad-suite.tgz && \
     tar -xf /tmp/oss-cad-suite.tgz --strip-components=1 -C $INSTALL_PREFIX && \
-
     # Clean up.
     rm -f /tmp/oss-cad-suite.tgz
 
@@ -80,11 +76,10 @@ ENV PATH="${PATH}:$INSTALL_PREFIX/py3bin:$INSTALL_PREFIX/bluespec/bin"
 # Fetch the the Bluespec toolchain at the specified SHA.
 RUN git clone --recursive $BSC_URL /tmp/bsc && cd /tmp/bsc && \
     git checkout $BSC_SHA && git submodule update -f && \
-    # Build, install and clean up.
-
-    # Unfortunately the Bluespec build infrastructure conflates its own library
-    # resources and the Bluespec and Verilog standard libraries for design
-    # builds, so use a seperate prefix rather than mixing with OSS CAD suite.
+    # Build, install and clean up. Unfortunately the Bluespec build
+    # infrastructure conflates its own library resources and the Bluespec and
+    # Verilog standard libraries for design builds, so use a seperate prefix
+    # rather than mixing with OSS CAD suite.
     make PREFIX=$INSTALL_PREFIX/bluespec install-src && \
     rm -rf /tmp/bsc
 
