@@ -61,4 +61,38 @@ bluespec_library('GimletTopRegs',
     ])
 ```
 
+Enums:
+======
+Note that bsv can't disambiguate enum members with the same name in the same package.
+```
+reg {
+        name = "A1 SM Status";
+        desc = "A1 'live' state machine status";
+        default sw = r;
 
+        enum a1_sm_status_enum {
+            Idle = 8'h00 {desc = "";};
+            Enable = 8'h01 {desc = "";};
+            WaitPG = 8'h02 {desc = "";};
+            Delay = 8'h03 {desc = "";};
+            Done = 8'h05 {desc = "";};
+        };
+
+        field {
+            desc = "TBD";
+            encode =  a1_sm_status_enum;
+        } A1SM[7:0];
+    } A1SMSTATUS;
+```
+
+This will generate enums in the bsv package as follows:
+```
+// Field Enum encoding
+typedef enum {
+    IDLE = 0, 
+    ENABLE = 1, 
+    WAITPG = 2, 
+    DELAY = 3, 
+    DONE = 5
+} A1smstatusA1sm deriving (Eq, Bits, FShow);
+```

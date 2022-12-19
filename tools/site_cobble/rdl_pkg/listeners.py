@@ -22,6 +22,14 @@ class MyModelPrintingListener(RDLListener):
     # noinspection PyPep8Naming
     def enter_Field(self, node):
         # Print some stuff about the field
+        if node.get_property('encode') is not None:
+            my_enum = node.get_property('encode')
+            print("Encode: {}".format(my_enum.type_name))
+            print("Encode: {}".format(my_enum.members))
+            for i in my_enum:
+                print(f"Encode: {i.name}")
+                print(f"Encode: {i.value}")
+                print(f"Encode: {i.rdl_name}")
         bit_range_str = "[%d:%d]" % (node.high, node.low)
         sw_access_str = "sw=%s" % node.get_property("sw").name
         print(" "*self.indent, bit_range_str, node.get_path_segment(), sw_access_str)
