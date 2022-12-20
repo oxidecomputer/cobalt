@@ -6,6 +6,11 @@ from systemrdl import RegNode, FieldNode, MemNode
 class UnsupportedRegisterSizeError(Exception):
     pass
 
+class DuplicateEnumNameError(Exception):
+    pass
+
+known_enum_names = set()
+
 
 class BaseModel:
     @classmethod
@@ -15,6 +20,7 @@ class BaseModel:
     def __init__(self, **kwargs):
         self.prefix = copy.deepcopy(kwargs.pop('prefix_stack'))
         self.repeated_type = kwargs.pop('repeated_type')
+        self.enum_names = set()
         self.node = kwargs.pop('node')
         self.width = self.node.size * 8  # node.size is bytes, we want bits here
         self.type_name = self.node.type_name if self.node.orig_type_name is None else self.node.orig_type_name
@@ -89,11 +95,25 @@ class Register(BaseModel):
             if field.high != expected:
                 gaps.append(ReservedField(expected, field.high + 1))
             expected = field.low - 1
+
+            # Deal with enum cases. We're generating a single package
+            # and BSV won't let us have duplicate ENUM field names so we'll
+            # trip out here
+            if not self.repeated_type and field.has_encode():
+                enums = field.encode_enums()
+                for name, val in enums:
+                    if name not in known_enum_names:
+                        known_enum_names.add(name)
+                    else:
+                        raise DuplicateEnumNameError("Enum member '{}' on register '{}' has previously used enum name".format(name, self.name))
+
+  
         if expected >= 0:
             gaps.append(ReservedField(expected, 0))
 
         # Combine fields and re-sort, leaving us with a completely specified register
         self.fields = sorted(self.fields + gaps, key=lambda x: x.low, reverse=True)
+
 
     def format_field_name(self, name):
         """
@@ -129,6 +149,14 @@ class BaseField:
             prop = ""
         return prop
 
+    @property
+    def reset_str(self):
+        my_rst = self.node.get_property('reset')
+        return "{:#0x}".format(my_rst) if my_rst is not None else "None"
+
+    def has_encode(self):
+        return False
+
 
 class Field(BaseField):
     """ A normal, systemRDL-defined field"""
@@ -142,6 +170,13 @@ class Field(BaseField):
         self.high = self.node.high
         self.low = self.node.low
         self.desc = self.node.get_property('desc')
+    
+    def has_encode(self):
+        return self.node.get_property("encode") is not None
+
+    
+    def encode_enums(self):
+        return list([(x.name, x.value) for x in self.node.get_property("encode") if self.has_encode()])
 
 
 class ReservedField(BaseField):
@@ -152,7 +187,6 @@ class ReservedField(BaseField):
         self.high = high
         self.low = low
         self.desc = 'Reserved'
-
 
 class Memory(BaseModel):
     def __init__(self, **kwargs):

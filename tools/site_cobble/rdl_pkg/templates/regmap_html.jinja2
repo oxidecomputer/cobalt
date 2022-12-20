@@ -273,7 +273,7 @@
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 {{"{:#0x}".format(register.offset)}}
-                {#<span class="tooltip_text">0xc8030000</span>#}
+                {#<span class="tooltip_text"></span>#}
             </div>
                 {#<div style="float:right;width:49%;text-align:right">(0)</div>#}
         </td>
@@ -319,10 +319,18 @@
     <tr class="cat{{outer_loop.index0}}" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">{{field.name}}</td>
-        <td class="FieldDesc" colspan="1*">{{ field.bitslice_str() }}</td>
+        <td class="FieldDesc" colspan="1*">{{field.bitslice_str() }}</td>
         <td class="FieldDesc" colspan="2*">{{field.get_property('sw').name}}</td>
-        <td class="FieldDesc" colspan="2*">{{field.get_property('reset')}}</td>
-        <td class="FieldDesc" colspan="14">{{field.desc}}</td>
+        <td class="FieldDesc" colspan="2*">{{field.reset_str}}</td>
+        <td class="FieldDesc" colspan="14">{{field.desc}}
+        {% if field.has_encode() %}
+        <br>
+        <br>
+        {% for enum_name, enum_val in field.encode_enums() %}
+            {{enum_name}} = {{"{:#0x}".format(enum_val)}} {{ "<br>" if not loop.last else "" }}
+        {% endfor %}
+        {% endif %}
+        </td>
     </tr>
     {% endif %}
     {% endfor %}
