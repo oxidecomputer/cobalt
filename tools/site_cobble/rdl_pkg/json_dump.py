@@ -57,6 +57,11 @@ def convert_field(rdlc: RDLCompiler, obj: FieldNode) -> dict:
     write_se = None if (not obj.get_property('onwrite')) else obj.get_property('onwrite').name
     json_obj['se_onwrite'] = write_se
     json_obj['desc'] = obj.get_property('desc')
+    if obj.get_property('encode') is not None:
+        lst = list();
+        for name, value in list([(x.name, x.value) for x in obj.get_property("encode")]):
+            lst.append({"name": name, "value": value})
+        json_obj['encode'] = lst.copy()
     return json_obj
 
 
