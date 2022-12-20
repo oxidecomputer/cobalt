@@ -43,7 +43,7 @@ Bit#({{register.width}}) {{register.name|lower|to_camel_case}}{{register.format_
 // Field Enum encoding
 typedef enum {
         {% for enum_name, enum_value in field.encode_enums() %}
-    {{enum_name|upper}} = {{enum_value}}{{ ", " if not loop.last else "" }}
+    {{enum_name}} = {{enum_value}}{{ ", " if not loop.last else "" }}
         {% endfor %}
 } {{register.name|lower|to_camel_case(uppercamel=True)}}{{register.format_field_name(field.name)|lower|to_camel_case(uppercamel=True)}} deriving (Eq, Bits, FShow);
         {% endif %}
