@@ -214,84 +214,87 @@ def _bluespec_modules(package, name, mod_type, *,
         # Note that if the package is already present in the dependency tree, BSC will be able to
         # use either since we can't remove the .bo path for the other object (as there may be other
         # objects on that path). This is not ideal, but since both objects are built using the same
-        # flags they should be identical for the purposes of generating the desired Verilog output.
+        # flags they should be identical for the purposes of generating the desired Verilog or
+        # Bluesim output.
 
-        # Rewrite outputs into the environment.
         object_out = ctx.env.rewrite(top_package + '.bo')
-        module_outs = [ctx.env.rewrite(m) for m in modules]
 
-        env = ctx.env.subset_require(_compile_keys).derive({
-            # Insert the list of output modules to make package output dirs more unique. This allows
-            # for generating Verilog modules from the same package in two different rules if this is
-            # desired for some reason.
-            #
-            # Note that any (* synthesize *) directives in the package will still cause other
-            # modules to be generated and written to disk, but they will not be exposed in the build
-            # graph unless includes in the modules argument.
-            SOURCE_HACK.name: [top_path] + module_outs,
-            BSC_FLAGS.name: [
-                '-p +:' + ':'.join(sorted(ctx.env[BO_PATHS.name])),
-                '-%s' % mod_type,
-            ],
-        })
+        products = []
 
-        # Derive the output path and the subsequent product env using this output path for both the
-        # package object and Verilog modules.
-        out_dir = package.outpath(env)
-        object_path = os.path.join(out_dir, object_out)
-        module_ext = '.v' if mod_type == 'verilog' else '.ba'
-        module_paths = [os.path.join(out_dir, out + module_ext) for out in module_outs]
+        for module in modules:
+            module_ext = 'v' if mod_type == 'verilog' else 'ba'
+            # Generate the module output key, which looks like path/to/module.ext.
+            module_out = ctx.env.rewrite('%s.%s' % (module, module_ext))
 
-        p_env = env.derive({
-            BSC_FLAGS.name: ['-vdir', out_dir] if mod_type == 'verilog' else [],
-            BSC_BDIR.name: out_dir,
-        })
+            # Generate the module specific environment. The module name is added to BSC_FLAGS
+            # making the environment unique.
+            object_env = ctx.env.subset_require(_compile_keys).derive({
+                SOURCE_HACK.name: [top_path],
+                BSC_FLAGS.name: [
+                    '-p +:' + ':'.join(sorted(ctx.env[BO_PATHS.name])),
+                    '-%s' % mod_type,
+                    '-g %s' % module,
+                ],
+            })
 
-        # Derive dyndep env and product for the dyndep file.
-        dyndep_out = object_out + '.dyndep'
-        dyndep_path = os.path.join(out_dir, dyndep_out)
-        dyndep_env = ctx.env.subset_require(_bluescan_keys).derive({
-            BLUESCAN_OBJ.name: object_path,
-        })
+            # Derive the output path and the subsequent product env using this output path for both
+            # the package object and module output.
+            out_dir = package.outpath(object_env)
+            object_path = os.path.join(out_dir, object_out)
+            module_path = os.path.join(out_dir, module_out)
 
-        dyndep = cobble.target.Product(
-            env = dyndep_env,
-            inputs = [top_path],
-            outputs = [dyndep_path],
-            rule = 'bluespec_dep_scan',
-        )
+            product_env = object_env.derive({
+                BSC_FLAGS.name: ['-vdir', out_dir] if mod_type == 'verilog' else [],
+                BSC_BDIR.name: out_dir,
+            })
 
-        # Make sure the vdir/bdir exists by adding a stamp.
-        vdir_stamp = cobble.target.Product(
-            env = ctx.env.subset([]),
-            outputs = [os.path.join(out_dir, '.force-dir-creation')],
-            rule = 'bluespec_directory_creation_hack',
-        )
+            # Derive dyndep env and product for the dyndep file.
+            dyndep_out = object_out + '.dyndep'
+            dyndep_path = os.path.join(out_dir, dyndep_out)
+            dyndep_env = ctx.env.subset_require(_bluescan_keys).derive({
+                BLUESCAN_OBJ.name: object_path,
+            })
 
-        product = cobble.target.Product(
-            env = p_env,
-            inputs = [top_path],
-            outputs = module_paths + [object_path],
-            rule = 'generate_bluespec_modules',
-            dyndep = dyndep_path,
-            order_only = vdir_stamp.outputs + dyndep.outputs,
-        )
+            dyndep = cobble.target.Product(
+                env = dyndep_env,
+                inputs = [top_path],
+                outputs = [dyndep_path],
+                rule = 'bluespec_dep_scan',
+            )
 
-        symlink_modules = not env is None and mod_type == 'verilog'
+            # Make sure the vdir/bdir exists by adding a stamp.
+            outdir_stamp = cobble.target.Product(
+                env = ctx.env.subset([]),
+                outputs = [os.path.join(out_dir, '.force-dir-creation')],
+                rule = 'bluespec_directory_creation_hack',
+            )
 
-        for name, path in zip(module_outs, module_paths):
-            product.expose(path = path, name = name)
-            if symlink_modules:
-                product.symlink(target = path, source = package.linkpath(name + module_ext))
+            product = cobble.target.Product(
+                env = product_env,
+                inputs = [top_path],
+                outputs = [module_path, object_path],
+                rule = 'generate_bluespec_module',
+                dyndep = dyndep_path,
+                order_only = outdir_stamp.outputs + dyndep.outputs,
+            )
 
-        our_using = (
-            using,
-            cobble.env.prepare_delta({
-                '__implicit__': module_paths,
-            }),
-        )
+            # Expose the module output for use in downstream rules.
+            product.expose(name = module, path = module_path)
 
-        return (our_using, [vdir_stamp, product, dyndep])
+            # Add a symlink to latest when this rule is called for a Verilog
+            # module and an environment is provided. This allows a Verilog
+            # output to be a node without outgoing edges in the build graph,
+            # useful when generatating Verilog for inspection or for consumption
+            # by a tool not driven using Cobble.
+            if not env is None and mod_type == 'verilog':
+                product.symlink(
+                    target = module_path,
+                    source = package.linkpath(module_out))
+
+            # Add to the list of products generated for this target.
+            products.extend([outdir_stamp, product, dyndep])
+
+        return (using, products)
 
     if env is None:
         return cobble.target.Target(
@@ -834,7 +837,7 @@ ninja_rules = {
         'command': '$bsc $bsc_flags -bdir $bsc_bdir $in',
         'description': 'BS OBJECT $in',
     },
-    'generate_bluespec_modules': {
+    'generate_bluespec_module': {
         'command': '$bsc $bsc_flags -bdir $bsc_bdir $in',
         'description': 'BS MODULES $in',
     },
