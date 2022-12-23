@@ -182,10 +182,10 @@ module mkEncoderTest (Empty);
     endseq);
 
     mkAutoFSM(seq
-        assert_get_and_display_fshow(e.character, 'b11010_10100, "Expected control character");
-        assert_get_and_display_fshow(e.character, 'b10100_11100, "Expected TERC4 character");
-        assert_get_and_display_fshow(e.character, 'b10110_01100, "Expected guard band character");
-        assert_get_and_display_fshow(e.character, 'b10000_01100, "Expected pixel character");
+        assert_get_eq_display(e.character, 'b11010_10100, "Expected control character");
+        assert_get_eq_display(e.character, 'b10100_11100, "Expected TERC4 character");
+        assert_get_eq_display(e.character, 'b10110_01100, "Expected guard band character");
+        assert_get_eq_display(e.character, 'b10000_01100, "Expected pixel character");
     endseq);
 endmodule: mkEncoderTest
 
