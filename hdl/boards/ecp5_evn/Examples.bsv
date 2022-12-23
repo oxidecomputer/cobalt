@@ -14,7 +14,7 @@ import UART::*;
 import UARTLoopback::*;
 
 
-(* synthesize, default_clock_osc="CLK_12mhz", default_reset="GSR_N" *)
+(* default_clock_osc="CLK_12mhz", default_reset="GSR_N" *)
 module mkBlinky (TopMinimal);
     GSR gsr <- mkGSR(); // Allow GSR_N to reset the design.
     Blinky#(12_000_000) blinky <- Blinky::mkBlinky();
@@ -33,7 +33,7 @@ module mkBlinky (TopMinimal);
     endmethod
 endmodule
 
-(* synthesize, default_clock_osc="CLK_12mhz", default_reset="GSR_N" *)
+(* default_clock_osc="CLK_12mhz", default_reset="GSR_N" *)
 module mkUARTLoopback (TopMinimal);
     GSR gsr <- mkGSR(); // Allow GSR_N to reset the design.
     UARTLoopback#(12_000_000, 115200, 8) loopback <- UARTLoopback::mkUARTLoopback();
@@ -60,7 +60,7 @@ endmodule
 // parts of a design using independent clocks. This example should blink the first two LEDs in phase
 // at 1Hz.
 //
-(* synthesize, default_clock_osc="CLK_12mhz", default_reset="GSR_N" *)
+(* default_clock_osc="CLK_12mhz", default_reset="GSR_N" *)
 module mkClocks (TopMinimal);
     GSR gsr <- mkGSR(); // Allow GSR_N to reset the design.
 

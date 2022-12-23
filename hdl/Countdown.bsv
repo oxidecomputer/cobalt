@@ -61,7 +61,6 @@ instance Connectable#(PulseWire, Countdown#(sz));
     endmodule
 endinstance
 
-(* synthesize *)
 module mkCountdownTest (Empty);
     Countdown#(2) c <- mkCountdownBy1();
 

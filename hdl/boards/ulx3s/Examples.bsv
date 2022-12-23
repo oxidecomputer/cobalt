@@ -14,7 +14,7 @@ import UART::*;
 import UARTLoopback::*;
 
 
-(* synthesize, default_clock_osc="clk_25mhz", default_reset="btn_pwr" *)
+(* default_clock_osc="clk_25mhz", default_reset="btn_pwr" *)
 module mkBlinky (Top);
     GSR gsr <- mkGSR(); // Allow btn_pwr to reset the design.
     Blinky#(25_000_000) blinky <- Blinky::mkBlinky();
@@ -44,7 +44,7 @@ module mkBlinky (Top);
     endinterface
 endmodule
 
-(* synthesize, default_clock_osc="clk_25mhz", default_reset="btn_pwr" *)
+(* default_clock_osc="clk_25mhz", default_reset="btn_pwr" *)
 module mkUARTLoopback (Top);
     GSR gsr <- mkGSR(); // Allow btn_pwr to reset the design.
     UARTLoopback#(25_000_000, 115200, 8) loopback <- UARTLoopback::mkUARTLoopback();
