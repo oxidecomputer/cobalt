@@ -15,6 +15,7 @@ package ECP5;
 export GSR(..), mkGSR;
 export ECP5PLLParameters(..), ECP5PLL(..), mkECP5PLL, mkPLL;
 
+import BuildVector::*;
 import DefaultValue::*;
 import Vector::*;
 
@@ -45,8 +46,8 @@ import "BVI" GSR =
 interface ECP5PLL;
     // Primary output clock of the PLL.
     interface Clock clkop;
-    // Secondary output clocks of the PLL. These can be either be integer divisions or phase shifted
-    // from the primary output clock.
+    // Secondary output clocks of the PLL. These can be either integer divided or phase shifted
+    // versions of the primary output clock.
     interface Clock clkos;
     interface Clock clkos2;
     interface Clock clkos3;
@@ -154,8 +155,9 @@ import "BVI" ECP5PLL =
         default_clock clki(CLKI, CLKI_GATE) = clk_in;
         default_reset rst = rst;
 
-        // TODO (arjen): determine how to add output clock gating without breaking
-        // `no_implicit_conditions` assertions in modules clocked by these outputs.
+        // TODO (arjen): determine how to add output clock gating without
+        // breaking `no_implicit_conditions` assertions in modules clocked by
+        // these outputs.
         port CLKOP_GATE = 1'b0;
         port CLKOS_GATE = 1'b0;
         port CLKOS2_GATE = 1'b0;
@@ -187,22 +189,23 @@ endmodule
 //
 // Instantiate a generic PLL with the given parameters. This is experimental and likely to change.
 //
-module mkPLL #(ECP5PLLParameters parameters, Clock clk_in, Reset rst) (PLL#(n_output_clocks));
+module mkPLL #(
+        ECP5PLLParameters parameters,
+        Clock clk_in,
+        Reset rst)
+            (PLL#(n_output_clocks))
+                // Ensure at most four clocks.
+                provisos (Add#(n_output_clocks, a__, 4));
     ECP5PLL _pll <- mkECP5PLL(parameters, clk_in, rst);
 
     interface Clock in = clk_in;
 
-    method Vector#(n_output_clocks, Clock) out();
-        // TODO (arjen): This generates a compiler warning. Determine how to improve this.
-        Vector#(n_output_clocks, Clock) cs;
-
-        if (valueOf(n_output_clocks) >= fromInteger(1)) cs[0] = _pll.clkop;
-        if (valueOf(n_output_clocks) >= fromInteger(2)) cs[1] = _pll.clkos;
-        if (valueOf(n_output_clocks) >= fromInteger(3)) cs[2] = _pll.clkos2;
-        if (valueOf(n_output_clocks) >= fromInteger(3)) cs[3] = _pll.clkos3;
-
-        return cs;
-    endmethod
+    method Vector#(n_output_clocks, Clock) out() =
+        take(vec(
+            _pll.clkop,
+            _pll.clkos,
+            _pll.clkos2,
+            _pll.clkos3));
 
     method locked = !_pll.not_lock;
 endmodule
