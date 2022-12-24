@@ -131,15 +131,15 @@ module mkTestPatternGeneratorTest (Empty);
 
     mkAutoFSM(seq
         g.set_parameters(p);
-        assert_get_and_display_fshow(g.pixel, white, "expected a white pixel");
-        assert_get_and_display_fshow(g.pixel, white, "expected a white pixel");
-        assert_get_and_display_fshow(g.pixel, yellow, "expected a yellow pixel");
-        assert_get_and_display_fshow(g.pixel, cyan, "expected a cyan pixel");
-        assert_get_and_display_fshow(g.pixel, green, "expected a green pixel");
-        assert_get_and_display_fshow(g.pixel, magenta, "expected a magenta pixel");
-        assert_get_and_display_fshow(g.pixel, red, "expected a red pixel");
-        assert_get_and_display_fshow(g.pixel, blue, "expected a blue pixel");
-        assert_get_and_display_fshow(g.pixel, white, "expected a white pixel of the next line");
+        assert_get_eq_display(g.pixel, white, "expected a white pixel");
+        assert_get_eq_display(g.pixel, white, "expected a white pixel");
+        assert_get_eq_display(g.pixel, yellow, "expected a yellow pixel");
+        assert_get_eq_display(g.pixel, cyan, "expected a cyan pixel");
+        assert_get_eq_display(g.pixel, green, "expected a green pixel");
+        assert_get_eq_display(g.pixel, magenta, "expected a magenta pixel");
+        assert_get_eq_display(g.pixel, red, "expected a red pixel");
+        assert_get_eq_display(g.pixel, blue, "expected a blue pixel");
+        assert_get_eq_display(g.pixel, white, "expected a white pixel of the next line");
     endseq);
 
     mkTestWatchdog(20);

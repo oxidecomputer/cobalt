@@ -1,10 +1,4 @@
-def bluesim_test(name, top, module):
-    bluesim_binary(name,
-        env = 'bluesim_default',
-        top = ':%s#%s' % (top, module),
-        deps = [
-            ':%s' % top,
-        ])
+# -*- python -*- vim:syntax=python:
 
 bluespec_library('video',
     sources = [
@@ -22,12 +16,9 @@ c_library('source_validation',
         'video_source_validation.cc',
     ])
 
-#
-# BlueSim targets
-#
-
-bluespec_sim('Timing_tests',
-    top = 'Timing.bsv',
+bluesim_tests('TimingTests',
+    env = 'bluesim_default',
+    suite = 'Timing.bsv',
     modules = [
         'mkMinimalDisplayTimingTest',
         'mk100pDisplayTimingTest',
@@ -36,8 +27,9 @@ bluespec_sim('Timing_tests',
         ':video',
     ])
 
-bluespec_sim('TestPatternGenerator_tests',
-    top = 'TestPatternGenerator.bsv',
+bluesim_tests('TestPatternGeneratorTests',
+    env = 'bluesim_default',
+    suite = 'TestPatternGenerator.bsv',
     modules = [
         'mkTestPatternGeneratorTest',
     ],
@@ -45,25 +37,12 @@ bluespec_sim('TestPatternGenerator_tests',
         ':video',
     ])
 
-bluespec_sim('TMDS_tests',
-    top = 'TMDS.bsv',
+bluesim_tests('TMDSTests',
+    env = 'bluesim_default',
+    suite = 'TMDS.bsv',
     modules = [
         'mkEncoderTest',
     ],
     deps = [
         ':video',
     ])
-
-#
-# Runnable tests
-#
-
-bluesim_test('minimal_display_timing_test', 'Timing_tests', 'mkMinimalDisplayTimingTest')
-bluesim_test('100p_display_timing_test', 'Timing_tests', 'mk100pDisplayTimingTest')
-
-bluesim_test(
-    'test_pattern_generator_test',
-    'TestPatternGenerator_tests',
-    'mkTestPatternGeneratorTest')
-
-bluesim_test('tmds_encoder_test', 'TMDS_tests', 'mkEncoderTest')
