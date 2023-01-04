@@ -410,7 +410,6 @@ instance DefaultValue #(Counters);
         active: 0};
 endinstance
 
-(* synthesize *)
 module mkDisplayTimingGeneratorTest #(
         Timing t,
         Counters expected_pixels /*,
@@ -463,7 +462,6 @@ module mkDisplayTimingGeneratorTest #(
     endseq);
 endmodule
 
-(* synthesize *)
 module mkMinimalDisplayTimingTest (Empty);
     // 1 pixel/line for each period.
     let t = compute_timing(
@@ -479,7 +477,6 @@ module mkMinimalDisplayTimingTest (Empty);
     mkTestWatchdog(4 * 4 * 4); // ~4 frames.
 endmodule
 
-(* synthesize *)
 module mk100pDisplayTimingTest (Empty);
     let t = compute_timing(
         8, 8, 16, 160,  // H

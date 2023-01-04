@@ -148,7 +148,6 @@ module mkSerializer (Serializer);
     endinterface
 endmodule: mkSerializer
 
-(* synthesize *)
 module mkSerializerTest (Empty);
     Serializer ser <- mkSerializer();
 
@@ -257,7 +256,6 @@ module mkDeserializer (Deserializer);
     method waiting_for_start = idle_or_stop;
 endmodule: mkDeserializer
 
-(* synthesize *)
 module mkSerDesTest (Empty);
     // 10 bit cycles + 2 cycles to latch input/ouput bytes + 1 cycle to assert output.
     mkTestWatchdog(10 + 2 + 1);

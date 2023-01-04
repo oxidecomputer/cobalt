@@ -15,7 +15,6 @@ import TestUtils::*;
 
 // Encode all valid Values using the `encode(..)` functions from both packages,
 // comparing their results.
-(* synthesize *)
 module mkEncodeTest (Empty);
     Reg#(Bit#(9)) i <- mkReg(0);
     Wire#(Value) value <- mkWire();
@@ -53,7 +52,6 @@ endmodule
 // should match the `encode(..)` inputs. This is no guarantee the `decode(..)`
 // function will always return correct results, but it demonstrates it will
 // correctly decode the results of a valid encoder.
-(* synthesize *)
 module mkEncodeDecodeTest (Empty);
     Reg#(Bit#(9)) i <- mkReg(0);
     Wire#(Value) value <- mkWire();

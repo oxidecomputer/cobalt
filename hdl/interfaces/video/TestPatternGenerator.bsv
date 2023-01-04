@@ -121,7 +121,6 @@ module mkTestPatternGenerator (TestPatternGenerator);
     method set_parameters = parameters_next.wset;
 endmodule: mkTestPatternGenerator
 
-(* synthesize *)
 module mkTestPatternGeneratorTest (Empty);
     Parameters p = Parameters{
         pixels_per_column: 1,

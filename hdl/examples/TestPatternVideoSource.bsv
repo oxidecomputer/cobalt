@@ -77,7 +77,6 @@ module mkFixedTimingTestPatternVideoSource
     method end_of_field = _source.end_of_field;
 endmodule
 
-(* synthesize *)
 module mk100pTestPatternVideoSource (FixedTimingTestPatternVideoSource);
     let timing = compute_timing(
         8, 8, 16, 160,  // H
@@ -92,7 +91,6 @@ module mk100pTestPatternVideoSource (FixedTimingTestPatternVideoSource);
     return _source;
 endmodule
 
-(* synthesize *)
 module mk480pTestPatternVideoSource (FixedTimingTestPatternVideoSource);
     let timing = compute_timing(
         16, 64, 80, 640, // H

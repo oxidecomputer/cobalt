@@ -97,7 +97,6 @@ endmodule
 
 // `mkSlowEdgeSchmittRegTest` tests a filter where three consequitive 0's or 1's
 // are required before the output generates a positive or negative edge.
-(* synthesize *)
 module mkSlowEdgeSchmittRegTest (Empty);
     let edge_patterns = EdgePatterns {
         negative_edge: 'b000,
@@ -122,7 +121,6 @@ endmodule
 // `mkFastPositiveEdgeSchmittRegTest` tests a filter where the output
 // immediately reflects a positive edge on the input but requires three
 // consequitive 0's before showing a falling edge.
-(* synthesize *)
 module mkFastPositiveEdgeSchmittRegTest (Empty);
     let edge_patterns = EdgePatterns {
         negative_edge: 'b000,
@@ -149,7 +147,6 @@ module mkFastPositiveEdgeSchmittRegTest (Empty);
     endseq);
 endmodule
 
-(* synthesize *)
 module mkLongBounceSchmittRegTest (Empty);
     let edge_patterns = EdgePatterns {
         negative_edge: 'b000,

@@ -31,12 +31,12 @@ typedef struct {
 } SpiRx deriving (Bits, Eq);
 
 typedef enum {
-    OPCODE, 
-    ADDR1, 
-    ADDR2, 
-    DO_READ, 
-    DO_WRITE, 
-    READ_WAIT, 
+    OPCODE,
+    ADDR1,
+    ADDR2,
+    DO_READ,
+    DO_WRITE,
+    READ_WAIT,
     WRITE_WAIT
 } State deriving (Eq, Bits);
 
@@ -109,7 +109,7 @@ module mkSpiRegDecode(SpiDecodeIF);
         end else begin
             let next_state = operation == READ ? READ_WAIT : WRITE_WAIT;
             state <= next_state;
-            // We've consumed the curent address and we're done with it so increment 
+            // We've consumed the curent address and we're done with it so increment
             // to get ready for the next read or write
             address <= address + 1;
             // Clear valid flag since this write data was consumed.
@@ -125,7 +125,7 @@ module mkSpiRegDecode(SpiDecodeIF);
             state <= OPCODE;
         end else if (got_data) begin
             state <= next_state;
-            // We got data while waiting. If this is a read, we don't care what happens 
+            // We got data while waiting. If this is a read, we don't care what happens
             // to the data here as it is dummy data. If this is a write
             // we store the data to build the transaction.
             reg_write_data <= tagged Valid my_data;
@@ -165,7 +165,7 @@ module mkSpiRegDecode(SpiDecodeIF);
         interface Get request;
             method ActionValue#(RegRequest#(16, 8)) get() if (state == DO_READ || state == DO_WRITE);
                 let ret = RegRequest {
-                    address: address, 
+                    address: address,
                     wdata: fromMaybe(?, reg_write_data),
                     op: operation
                 };
@@ -267,12 +267,11 @@ module mkTestRegResponder(Server#(RegRequest#(16, 8), RegResp#(8)));
 endmodule
 
 // Test bench
-(* synthesize *)
 module mkSpiDecodeTest(Empty);
     SpiDecodeIF decode <- mkSpiRegDecode();
     Server#(RegRequest#(16, 8), RegResp#(8)) fake_reg <- mkTestRegResponder();
     mkConnection(decode.reg_con, fake_reg);
-    
+
     let a_byte = tagged Valid ('hff);
     let read_byte = SpiRx {spi_rx_byte:  tagged Valid (zeroExtend(pack(READ))), done: False};
     let write_byte = SpiRx {spi_rx_byte:  tagged Valid (zeroExtend(pack(WRITE))), done: False};
@@ -407,11 +406,11 @@ module mkSpiPeripheralPhy(SpiPeripheralPhy);
     // Note: This module is currently designed to function in mode 0 (CPOL=0, CPHA=0).
     // Note: There isn't currently function to put valid data out on the CIPO wire for
     // the first byte after being selected. Typical SPI peripherals don't have valid data
-    // to return the first cycle since the usually require a command byte/address byte to 
+    // to return the first cycle since the usually require a command byte/address byte to
     // present the requested data.
 
     // Module registers
-    // For the TX and RX shift registers we're using 9 bit vectors: the "extra" bit is 
+    // For the TX and RX shift registers we're using 9 bit vectors: the "extra" bit is
     // "done shifting" flag vs using counters
     Reg#(Vector#(9, Bit#(1))) tx_shift <- mkReg(unpack('h01));
     Reg#(Vector#(9, Bit#(1))) rx_shift <- mkReg(unpack('h01));
@@ -427,8 +426,8 @@ module mkSpiPeripheralPhy(SpiPeripheralPhy);
     PulseWire sclk_trailing_edge <- mkPulseWire();  // Single cycle pulse for trailing edge
     PulseWire deselected  <- mkPulseWire();         // Single cycle pulse for losing bus selection
     PulseWire selected  <- mkPulseWire();           // Single cycle pulse for gaining bus selection
-    PulseWire rx_byte_done  <- mkPulseWire();       
-    
+    PulseWire rx_byte_done  <- mkPulseWire();
+
     RWire#(Bit#(1)) cur_sclk <- mkRWire();
     RWire#(Bit#(1)) cur_csn  <- mkRWire();
     RWire#(Bit#(1)) cur_copi <- mkRWire();
@@ -466,7 +465,7 @@ module mkSpiPeripheralPhy(SpiPeripheralPhy);
 
     // Upon gaining bus selection, reset the tx and rx shifters.
     // Note that the sclk_trailing_edge and sclk_leading_edge can't really happen this
-    // cycle in a normal system but we put them here to help the compiler prove that there is 
+    // cycle in a normal system but we put them here to help the compiler prove that there is
     // rule exclusivity since we're writing to the tx_shift and rx_shift registers in multiple rules.
     (* fire_when_enabled, no_implicit_conditions *)
     rule do_shifter_reset (selected && !sclk_trailing_edge && !sclk_leading_edge);
@@ -653,7 +652,7 @@ module mkModelSpiController(ModelSpiController);
     endrule
 
     interface SpiControllerPins pins;
-        
+
         method csn = csn._read;  // CSN output
         method sclk = sclk._read; // sclk output
         method Bit#(1) copi(); // data output
@@ -690,13 +689,12 @@ endmodule
 
 
 // Test bench
-(* synthesize *)
 module mkSpiPhyTest(Empty);
     ModelSpiController controller <- mkModelSpiController();
     SpiDecodeIF decode <- mkSpiRegDecode();
     SpiPeripheralPhy phy <- mkSpiPeripheralPhy();
     Server#(RegRequest#(16, 8), RegResp#(8)) fake_reg <- mkTestRegResponder();
-    
+
     mkConnection(decode.reg_con, fake_reg); // client-server interface between decoder and reg
     mkConnection(decode.spi_byte, phy.decoder_if); // client-server interface between phy and decoder
     // connect all the gpio pins

@@ -13,7 +13,7 @@ import UART::*;
 import UARTLoopback::*;
 
 
-(* synthesize, default_clock_osc="clk_12mhz" *)
+(* default_clock_osc="clk_12mhz" *)
 module mkBlinky (Top);
     FTDI ftdi_noop <- mkFTDITieOff();
     IRDA irda_noop <- mkIRDATieOff();
@@ -24,7 +24,7 @@ module mkBlinky (Top);
     method led() = {'0, blinky.led()};
 endmodule
 
-(* synthesize, default_clock_osc="clk_12mhz" *)
+(* default_clock_osc="clk_12mhz" *)
 module mkUARTLoopback (Top);
     IRDA irda_noop <- mkIRDATieOff();
     UARTLoopback#(12_000_000, 115200, 8) loopback <- UARTLoopback::mkUARTLoopback();

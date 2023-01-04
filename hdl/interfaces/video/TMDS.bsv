@@ -168,7 +168,6 @@ module mkEncoder (Encoder);
     endmethod
 endmodule: mkEncoder
 
-(* synthesize *)
 module mkEncoderTest (Empty);
     Encoder e <- mkEncoder();
 

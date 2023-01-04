@@ -215,7 +215,6 @@ function Action tick_while_assert(
         dynamicAssert(s == pulse_expected, msg);
     endaction;
 
-(* synthesize *)
 module mkPowerTwoStrobeTest (Empty);
     // Expect a pulse 4th time `send()` is called.
     Strobe#(2) s <- mkPowerTwoStrobe(1, 0);
@@ -233,7 +232,6 @@ module mkPowerTwoStrobeTest (Empty);
     endseq);
 endmodule
 
-(* synthesize *)
 module mkPowerTwoStrobeAsCountDownTest (Empty);
     // Expect a pulse after two ticks.
     Strobe#(2) s <- mkPowerTwoStrobe(1, 0);
@@ -246,7 +244,6 @@ module mkPowerTwoStrobeAsCountDownTest (Empty);
     endseq);
 endmodule
 
-(* synthesize *)
 module mkFractionalStrobeTest (Empty);
     // Expect a pulse every ~10th tick, with an occasional 11th tick.
     Strobe#(16) s <- mkFractionalStrobe(1000 / 96, 0);
@@ -272,7 +269,6 @@ module mkFractionalStrobeTest (Empty);
     endseq);
 endmodule
 
-(* synthesize *)
 module mkLimitStrobeStrobeTest (Empty);
     // Expect a pulse 3rd time `send()` is called.
     Strobe#(2) s <- mkLimitStrobe(1, 3, 0);
