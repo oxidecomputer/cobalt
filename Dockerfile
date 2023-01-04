@@ -13,7 +13,7 @@ ARG BSC_SHA=2005df70feb6160804399f69c26c803697aa6306
 ARG BSC_CONTRIB_URL=https://github.com/B-Lang-org/bsc-contrib.git
 ARG BSC_CONTRIB_SHA=aa205330885f6955e24fd99a0319e2733b5353f1
 
-ARG OSS_CAD_RELEASE_URL=https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2022-12-05/oss-cad-suite-linux-ARCH-20221205.tgz
+ARG OSS_CAD_RELEASE_URL=https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2022-12-22/oss-cad-suite-linux-ARCH-20221222.tgz
 
 # Create a non-root user, owning /home
 RUN groupadd --gid $GID $USERNAME && \
