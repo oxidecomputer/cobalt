@@ -4,3 +4,9 @@ BUILD.vars
 __pycache__
 
 devcontainer.json
+
+# VS Code settings
+.vscode
+
+# MacOS metadata
+.DS_Store
