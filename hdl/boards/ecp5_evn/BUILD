@@ -12,13 +12,13 @@ bluespec_verilog('examples',
     top = 'Examples.bsv',
     modules = [
         'mkBlinky',
-        'mkUARTLoopback',
+        'mkLoopbackUART',
         'mkClocks',
     ],
     deps = [
         ':Board',
         '//hdl/examples:Blinky',
-        '//hdl/examples:UARTLoopback',
+        '//hdl/examples:LoopbackUART',
     ])
 
 # Blinky design targets
@@ -41,10 +41,10 @@ nextpnr_ecp5_bitstream('blinky_ecp5_evn',
 
 # UART loopback design targets
 
-yosys_design('uart_loopback',
-    top_module = 'mkUARTLoopback',
+yosys_design('loopback_uart',
+    top_module = 'mkLoopbackUART',
     sources = [
-        ':examples#mkUARTLoopback',
+        ':examples#mkLoopbackUART',
         '//vnd/bluespec:Verilog.v#Verilog.v',
     ],
     deps = [
@@ -52,11 +52,11 @@ yosys_design('uart_loopback',
         '//vnd/bluespec:Verilog.v',
     ])
 
-nextpnr_ecp5_bitstream('uart_loopback_ecp5_evn',
+nextpnr_ecp5_bitstream('loopback_uart_ecp5_evn',
     env = 'ecp5_evn',
-    design = ':uart_loopback#uart_loopback.json',
+    design = ':loopback_uart#loopback_uart.json',
     deps = [
-        ':uart_loopback',
+        ':loopback_uart',
     ])
 
 # Clocks/PLL design targets

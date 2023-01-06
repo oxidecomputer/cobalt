@@ -5,22 +5,22 @@ bluespec_library('Blinky',
         'Blinky.bsv',
     ])
 
-bluespec_library('UARTLoopback',
+bluespec_library('LoopbackUART',
     sources = [
-        'UARTLoopback.bsv',
+        'LoopbackUART.bsv',
     ],
     deps = [
         '//hdl/interfaces:UART',
     ])
 
-bluesim_tests('UARTLoopbackTests',
+bluesim_tests('LoopbackUARTTests',
     env = 'bluesim_default',
-    suite = 'UARTLoopback.bsv',
+    suite = 'LoopbackUART.bsv',
     modules = [
-        'mkUARTLoopbackTest',
+        'mkLoopbackUARTTest',
     ],
     deps = [
-        ':UARTLoopback',
+        ':LoopbackUART',
     ])
 
 #

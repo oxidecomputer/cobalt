@@ -1,116 +1,78 @@
-// Copyright 2021 Oxide Computer Company
-//
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 package BitSampling;
 
-export BitSampler(..), mkBitSampler;
-export AsyncBitSampler(..), mkAsyncBitSampler;
-export Polarity(..);
+export BitSampler(..);
+export mkBitSampler;
 
-import FIFOF::*;
+import ConfigReg::*;
+import DReg::*;
 import GetPut::*;
+import Vector::*;
 
-import Strobe::*;
-
-
-typedef enum {
-    NegativePolarity = 0,
-    PositivePolarity
-} Polarity deriving (Bits, Eq, FShow);
 
 interface BitSampler #(numeric type bit_period);
     interface Put#(Bit#(1)) in;
     interface Get#(Bit#(1)) out;
 endinterface
 
-function Bool detect_edge(Bit#(sz) ds, Polarity polarity)
-        provisos (Add#(__a, 1, sz)); // sz > 0
-    Bit#(sz) edge_pattern =
-        polarity == PositivePolarity ? {'1, 1'b0} : {'0, 1'b1};
-    return ds == edge_pattern;
-endfunction
-
-module mkBitSampler #(Strobe#(any_sz) strobe, Polarity polarity) (BitSampler#(bit_period))
+module mkBitSampler (BitSampler#(bit_period))
         provisos (
-            Add#(bit_period_msb, 1, bit_period),
+            // The bit period should last two or more samples.
+            Add#(2, a__, bit_period),
+            // Ceiling of bit_period / 2. This works correct for odd count
+            // periods.
             Div#(bit_period, 2, half_bit_period));
-    AsyncBitSampler#(bit_period) _s <- mkAsyncBitSampler(strobe, polarity);
-    interface Put in = _s.in;
-    interface Put out = _s.out;
-endmodule
-
-interface AsyncBitSampler #(numeric type bit_period);
-    interface Put#(Bit#(1)) in;
-    interface Get#(Bit#(1)) out;
-    method Action search_for_bit_edge();
-endinterface
-
-module mkAsyncBitSampler
-        #(Strobe#(any_sz) strobe, Polarity polarity) (AsyncBitSampler#(bit_period))
-        provisos (
-            Add#(bit_period_msb, 1, bit_period),
-            Div#(bit_period, 2, half_bit_period),
-            Add#(half_bit_period, 1, edge_pattern_sz));
-    // Next incoming bit sample.
-    Wire#(Bit#(1)) d <- mkWire();
-    // Bit samples
-    Reg#(Bit#(bit_period)) samples <- mkRegA(polarity == PositivePolarity ? '0 : '1);
-    // The sampling point for the bit.
-    Wire#(Bit#(1)) sampled_bit <- mkWire();
-
-    // Output goes through a FIFO with unguarded enq. This will overwrite samples if an upstream
-    // sink does not keep up.
-    FIFOF#(Bit#(1)) q <- mkGFIFOF1(True, False);
-
-    PulseWire edge_detected <- mkPulseWire();
-    PulseWire search_for_bit_edge_ <- mkPulseWire();
-
-    function Action sample_bit =
-        action
-            sampled_bit <= samples[valueof(half_bit_period)];
-        endaction;
-
-    (* fire_when_enabled *)
-    rule do_detect_edge;
-        // Take a slice of the bit samples and match against the edge pattern. For a bit_period of 4
-        // samples and a positive polarity edge pattern, this effectively looks like comparing
-        // against 'b?110. For a bit period of 8 samples and negative polarity the comparison would
-        // be against 'b???00001.
-        Bit#(edge_pattern_sz) sample_slice = samples[valueof(half_bit_period):0];
-
-        if (detect_edge(sample_slice, polarity)) begin
-            // (Re-)align the strobe with the bit edge. Empirically it seems that instead of
-            // resetting the strobe to 0, setting it to +1 step results in a sample point closer to
-            // the center of the bit period.
-            strobe <= fromInteger(strobe.step());
-            edge_detected.send();
-        end
-
-        samples <= {d, samples[valueof(bit_period_msb):1]};
-        sample_bit();
-    endrule
-
-    // sampled_bit should be written continuously in order to allow enqueueing to the output FIFO
-    // whenever the strobe pulses. This rule will fire when do_sample does not, making sure this is
-    // true.
-    (* descending_urgency = "do_detect_edge, do_write_sampled_bit" *)
-    rule do_write_sampled_bit;
-        sample_bit();
-    endrule
-
-    (* fire_when_enabled *)
-    rule do_sample ((search_for_bit_edge_ && edge_detected) || (!search_for_bit_edge_ && strobe));
-        q.enq(sampled_bit);
-    endrule
+    ConfigReg#(Vector#(2, Bit#(1))) samples <- mkConfigRegU();
+    Reg#(UInt#(TLog#(bit_period))) count <- mkRegU();
+    Reg#(Bool) sample_valid <- mkDReg(False);
 
     interface Put in;
-        method put = d._write;
+        method Action put(Bit#(1) b);
+            let bit_edge = (samples[1] != samples[0]);
+            let do_sample = (count == 0);
+
+            samples <= shiftInAtN(samples, b);
+            sample_valid <= do_sample;
+
+            count <= (begin
+                if (do_sample)
+                    // Sample at the same point in one full bit period.
+                    fromInteger(valueOf(bit_period) - 1);
+                else if (bit_edge)
+                    // Sample near the center of the current bit period.
+                    //
+                    // If the bit period is 2 the sample point is on the next
+                    // cycle.
+                    if (valueOf(bit_period) == 2) begin
+                        0;
+                    end
+
+                    // If the bit period is even the sample point should be one
+                    // sample past half bit period in order to allow maximum
+                    // time to observe a possible next bit transition.
+                    else if (valueOf(half_bit_period) % 2 == 0) begin
+                        fromInteger(valueOf(half_bit_period) - 1);
+                    end
+
+                    // If the bit period is odd the sample point should be the
+                    // center sample of the bit period.
+                    else begin
+                        fromInteger(valueOf(half_bit_period) - 2);
+                    end
+                else
+                    (count - 1);
+                end);
+        endmethod
     endinterface
-    interface Get out = toGet(q);
-    method search_for_bit_edge = search_for_bit_edge_.send;
+
+    interface Get out;
+        method ActionValue#(Bit#(1)) get() if (sample_valid);
+            return samples[0];
+        endmethod
+    endinterface
 endmodule
 
 endpackage: BitSampling

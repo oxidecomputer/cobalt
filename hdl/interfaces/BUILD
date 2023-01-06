@@ -23,6 +23,7 @@ bluespec_library('UART',
     ],
     deps = [
         '//hdl:BitSampling',
+        '//hdl:SerialIO',
         '//hdl:Strobe',
         '//hdl:TestUtils',
     ])
@@ -32,7 +33,10 @@ bluesim_tests('UARTTests',
     suite = 'UART.bsv',
     modules = [
         'mkSerializerTest',
-        'mkSerDesTest',
+        'mkDeserializerTest',
+        'mkDeserializerStopMissingTest',
+        'mkDeserializerOverflowTest',
+        'mkSerializerDeserializerTest',
     ],
     deps = [
         ':UART',

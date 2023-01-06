@@ -130,10 +130,10 @@ endmodule
 // This primitive can be used to implement an output driver such as the SO
 // signal in a SPI interface which can be selectively enabled.
 //
-module mkOutputWithEnableSyncFor #(bits_type val, Bool en) (Inout#(bits_type))
+module mkOutputWithEnableSyncFor #(bits_type d_, Bool en_) (Inout#(bits_type))
         provisos (Bits#(bits_type, sz));
     (* hide *) WriteOnlyTriState#(bits_type) _pad <-
-        mkNullCrossingWriteOnlyTriState(en, val);
+        mkNullCrossingWriteOnlyTriState(en_, d_);
 
     return _pad.o;
 endmodule
@@ -147,15 +147,15 @@ endmodule
 // tiles.
 //
 module mkOutputRegWithEnableSyncFor #(
-        bits_type val_,
+        bits_type d,
         Bool en_)
             (Inout#(bits_type))
                 provisos (Bits#(bits_type, sz));
     ReadOnly#(Bool) en <- mkOutputRegSyncFor(en_);
-    ReadOnly#(bits_type) val <- mkOutputRegSyncFor(val_);
+    ReadOnly#(bits_type) q <- mkOutputRegSyncFor(d);
 
     (* hide *) WriteOnlyTriState#(bits_type) _pad <-
-        mkNullCrossingWriteOnlyTriState(en, val);
+        mkNullCrossingWriteOnlyTriState(en, q);
 
     return _pad.o;
 endmodule
