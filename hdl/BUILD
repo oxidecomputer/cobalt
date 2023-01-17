@@ -21,6 +21,11 @@ bluespec_library('RegCommon',
 )
 
 # Cobalt modules
+bluespec_library('Bidirection',
+    sources = [
+        'Bidirection.bsv',
+    ])
+
 bluespec_library('BitSampling',
     sources = [
         'BitSampling.bsv',
@@ -46,6 +51,15 @@ bluespec_library('InitialReset',
         'InitialReset.bsv',
     ], deps = [
         ':TestUtils',
+    ])
+
+bluespec_library('IOSync',
+    sources = [
+        'IOSync.bsv',
+    ],
+    deps = [
+        ':Bidirection',
+        ':WriteOnlyTriState',
     ])
 
 bluespec_library('PLL',
@@ -76,6 +90,11 @@ bluespec_library('TestUtils',
 bluespec_library('WriteOnceReg',
     sources = [
         'WriteOnceReg.bsv',
+    ])
+
+bluespec_library('WriteOnlyTriState',
+    sources = [
+        'WriteOnlyTriState.bsv',
     ])
 
 # Tests
