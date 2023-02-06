@@ -7,9 +7,10 @@ package UART;
 export Error(..);
 export Serializer(..);
 export Deserializer(..);
+export Transceiver(..);
 export mkSerializer;
 export mkDeserializer;
-export Transceiver(..);
+export mkTransceiver;
 
 export SampledSerialIO(..);
 export SamplingTransceiver(..);
@@ -29,14 +30,28 @@ import SerialIO::*;
 import Strobe::*;
 import TestUtils::*;
 
+//
+// This package implements serializer/deserializer primitives used to implement
+// a minimal UART. The serializer/deserializer primitives are purely data driven
+// and are expected to be combined with elements from `BitSampling` and `Strobe`
+// and `SerialIO` packages to implement timing and bit sampling.
+//
 
+// Error struct for the `Deserializer`, indicating errors which occured while
+// receiving bits.
 typedef struct {
+    // Indicates the STOP bit was missing in the received frame.
     Bool stop_missing;
+    // Indicates the deserializer FIFO was full when the next frame was
+    // received.
     Bool overflow;
 } Error deriving (Bits, Eq, FShow);
 
 Error error_none = Error {stop_missing: False, overflow: False};
 
+//
+// Interfaces for a UART `Serializer`, `Deserializer` and a `Transceiver`.
+//
 interface Deserializer;
     interface Put#(Bit#(1)) in;
     interface Get#(Bit#(8)) out;
@@ -54,11 +69,35 @@ interface Transceiver;
     (* always_enabled *) method Error error();
 endinterface
 
+//
+// `SamplingTransceiver` can be used to implement a `Transceiver` which operates
+// at a lower baud rate than the design clock, by sampling each bit for a given
+// number of cycles.
+//
+interface SamplingTransceiver #(numeric type bit_period);
+    interface SampledSerialIO#(bit_period) serial;
+    interface GetPut#(Bit#(8)) frame;
+    (* always_enabled *) method Error error();
+endinterface
+
 Bit#(1) start = 0;
 Bit#(1) stop_or_idle = 1;
 
+//
+// A minimal implementation of the `Serializer` interface, generating a stream
+// of 8N1 frames from provided bytes. This implementation works as follows:
+//
+// When the serializer is idle and a byte is provided on the `in` interface, the
+// byte is combined with a START bit and latched into a shift buffer. This
+// buffer is then shifted every time the `out` interface is enabled and IDLE
+// bits are inserted on the opposite end of the buffer. This fills the buffer
+// with IDLE bits which will automacitally get shifted out as STOP/IDLE once the
+// byte has been transmitted. When the last bit of the byte has been shifted out
+// the serializer is marked idle and the next byte can be submitted for
+// transmission.
+//
 module mkSerializer (Serializer);
-    RWire#(Bit#(8)) in_frame <- mkRWire();
+    RWire#(Bit#(8)) in_byte <- mkRWire();
     Reg#(Vector#(9, Bit#(1))) buffer <- mkReg(replicate(stop_or_idle));
 
     Reg#(Bool) idle <- mkReg(True);
@@ -66,9 +105,9 @@ module mkSerializer (Serializer);
 
     (* fire_when_enabled *)
     rule do_serialize;
-        if (in_frame.wget matches tagged Valid .frame) begin
+        if (in_byte.wget matches tagged Valid .b) begin
             // Set the shifter to contain a START bit and the frame to be sent.
-            buffer <= unpack({frame, start});
+            buffer <= unpack({b, start});
             idle <= False;
         end
         else if (shift) begin
@@ -85,8 +124,8 @@ module mkSerializer (Serializer);
     endrule
 
     interface Put in;
-        method Action put (Bit#(8) frame) if (idle);
-            in_frame.wset(frame);
+        method Action put (Bit#(8) b) if (idle);
+            in_byte.wset(b);
         endmethod
     endinterface
 
@@ -96,10 +135,37 @@ module mkSerializer (Serializer);
             return buffer[0];
         endmethod
     endinterface
-endmodule: mkSerializer
+endmodule
 
+//
+// A minimal implementation of the 'Deserializer` interface, generating bytes
+// from a serial stream of 8N1 frames. This module works as follows:
+//
+// 8N1 frames consist of a high to low transition (1 STOP/IDLE bit, followed by
+// a START bit), 8 data bits and a STOP bit. The deserializer shifts bits into a
+// shift buffer and scans this buffer for the 8N1 frame pattern. If the pattern
+// is found the byte is enqueued and counter is set such that the contents of
+// the shift buffer are ignored until all bits for a possible next 8N1 frame are
+// received. If such a frame is received the byte is enqueued, but if instead
+// the deserializer received idle bits the shift buffer will be examened on
+// every received bit until the frame pattern appears, indicating the next
+// received byte.
+//
+// The 8N1 serial protocol does not provide any means to synchronize the
+// receiver to a transmitter other than by observing at least a full frame of
+// IDLE bits. As such it may occur that the deserializer comes out of the reset
+// in the middle of a frame and returns invalid data if what is received happens
+// to match the frame pattern. This is expected and a higher level protocol
+// should provide its own framing/parsing if alignment is required for proper
+// operation.
+//
+// Note that the module expects downstream logic to dequeue received bytes as
+// soon as they become available. If the output FIFO is full when the next frame
+// is received the contents will be overwritten and the overflow flag in `Error`
+// will be set for one cycle.
+//
 module mkDeserializer (Deserializer);
-    FIFOF#(Bit#(8)) out_frame <- mkGLFIFOF(True, False);
+    FIFOF#(Bit#(8)) out_byte <- mkGLFIFOF(True, False);
 
     Reg#(Vector#(11, Bit#(1))) buffer <- mkRegU();
     Reg#(Bit#(4)) bits_remaining <- mkRegU();
@@ -124,16 +190,15 @@ module mkDeserializer (Deserializer);
                 bits_remaining <= 9;
 
                 if (stop) begin
-                    // The buffer contains a start pattern, the frame and a
-                    // STOP.
-                    let frame = takeAt(2, buffer);
+                    // The buffer contains a START, byte and a STOP.
+                    let b = takeAt(2, buffer);
 
                     // Attempt to enqueue the received byte. The FIFO enq is
                     // unguarded (possibly overwriting the previous byte), so if
                     // it was still full raise the overflow flag.
-                    out_frame.enq(pack(frame));
+                    out_byte.enq(pack(b));
 
-                    if (!out_frame.notFull) begin
+                    if (!out_byte.notFull) begin
                         fifo_full <= True;
                     end
                 end
@@ -148,13 +213,17 @@ module mkDeserializer (Deserializer);
         endmethod
     endinterface
 
-    interface Get out = toGet(out_frame);
+    interface Get out = toGet(out_byte);
 
     method error = Error {
         stop_missing: stop_missing,
         overflow: fifo_full};
-endmodule: mkDeserializer
+endmodule
 
+//
+// A `Transceiver` implemented by combining the minimal
+// `Serializer`/`Deserializer` implementations.
+//
 module mkTransceiver (Transceiver);
     Serializer serializer <- mkSerializer();
     Deserializer deserializer <- mkDeserializer();
@@ -164,12 +233,13 @@ module mkTransceiver (Transceiver);
     method error = deserializer.error;
 endmodule
 
-interface SamplingTransceiver #(numeric type bit_period);
-    interface SampledSerialIO#(bit_period) serial;
-    interface GetPut#(Bit#(8)) frame;
-    (* always_enabled *) method Error error();
-endinterface
-
+//
+// `mkSamplingTransceiver` implements a `SamplingTransceiver` by combining a
+// `Transceiver` with a `SampledSerialIO` adapter. A period strobe which divides
+// the current clock down to the desired baud rate is to be provided by external
+// logic. The `serial` interface is already synchronized by the IO adapter and
+// can be connected directly to a top interface/external pins.
+//
 module mkSamplingTransceiver
         #(Bool bit_strobe)
             (SamplingTransceiver#(bit_period))
@@ -301,4 +371,4 @@ module mkSerializerDeserializerTest (Empty);
     endseq);
 endmodule
 
-endpackage : UART
+endpackage
