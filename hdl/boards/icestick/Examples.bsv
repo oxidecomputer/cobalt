@@ -28,13 +28,12 @@ endmodule
 module mkLoopbackUART (Top);
     IRDA irda_noop <- mkIRDATieOff();
     LoopbackUART#(12_000_000, 115200, 8) uart <- LoopbackUART::mkLoopbackUART();
-    InputReg#(Bit#(1), 2) rx_sync <- mkInputSyncFor(uart.serial.rx);
 
     interface IRDA irda = irda_noop;
 
     interface FTDI ftdi;
         method rxd = uart.serial.tx;
-        method txd = sync(rx_sync);
+        method txd = uart.serial.rx;
 
         // Ignore flow control.
         method Action rts_n(Bit#(1) val);

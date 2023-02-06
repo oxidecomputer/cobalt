@@ -46,11 +46,10 @@ endmodule
 module mkLoopbackUART (Top);
     GSR gsr <- mkGSR(); // Allow btn_pwr to reset the design.
     LoopbackUART#(25_000_000, 115200, 8) uart <- LoopbackUART::mkLoopbackUART();
-    InputReg#(Bit#(1), 2) rx_sync <- mkInputSyncFor(uart.serial.rx);
 
     interface FTDI ftdi;
         method rxd = uart.serial.tx;
-        method txd = sync(rx_sync);
+        method txd = uart.serial.rx;
     endinterface
 
     interface ESP32 wifi;

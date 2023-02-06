@@ -9,11 +9,13 @@ export SampledSerialIO(..);
 export SampledSerialIOTxOutputEnable(..);
 export SampledSerialIOTxInout(..);
 export asSerialIO;
-export mkSampledSerialIOWithBitStrobe;
+export mkSampledSerialIO;
 export mkSampledSerialIOWithTxStrobe;
 export mkSampledSerialIOWithPassiveTx;
 export mkSampledSerialIOWithTxStrobeAndOutputEnable;
+export mkSampledSerialIOWithInout;
 export mkSampledSerialIOWithTxStrobeInout;
+export mkSampledSerialIOWithBitStrobe;
 
 import ConfigReg::*;
 import Connectable::*;
@@ -27,13 +29,13 @@ import WriteOnlyTriState::*;
 
 
 //
-// The `SerialIO` package provides several adapters which can be used to connect
-// serial interface primitives such as serializers/deserializers which use
-// timing agnostic `Get`/`Put` interfaces to continuous IO signals in a design
-// top interface. The implemented adapters use the `BitSampler` and `Strobe`
+// This package provides several adapters which can be used to connect serial
+// interface primitives such as serializers/deserializers which use timing
+// agnostic `Get`/`Put` interfaces to continuous IO signals in a design top
+// interface. The implemented adapters use the `BitSampler` and `Strobe`
 // primitives to appropriately align incoming and outgoing bits with the design
-// frequency, allowing the protocol specific primitives to be as timing agnostic
-// (and usually simple) as possible.
+// clock, allowing the protocol specific primitives to be as timing agnostic
+// (and often simpler) as possible.
 //
 // For a concrete example of the `SampledSerialIO` interface and a UART, see the
 // `SamplingTransceiver` in `hdl/interfaces/UART.bsv`, `LoopbackUART` in
@@ -75,7 +77,7 @@ endinterface
 
 //
 // `SampledSerialIOTxOutputEnable` and `SampledSerialIOTxInout` provide the
-// ability to explicitly enable the output. This can be used for example to
+// ability to selectively enable the output. This can be used for example to
 // implement a SPI peripheral which releases its output driver when not
 // selected.
 //
@@ -101,66 +103,32 @@ function SerialIO asSerialIO(SampledSerialIO#(bit_period) io) =
         method tx = io.tx;
     endinterface);
 
-module mkSampledSerialIOWithBitStrobe #(
-        Bool bit_strobe,
-        GetPut#(Bit#(1)) txr)
-            (SampledSerialIO#(bit_period))
-                provisos (Add#(2, a__, bit_period));
-    InputReg#(Bit#(1), 2) rx_sync <- mkInputSync();
-    Reg#(Bit#(1)) tx_sync <- mkConfigRegU();
-
-    // This module is intended to be connected to pins in the top interface of a
-    // design. BitSampler however requires an implicit reset because of its
-    // implicit use of a RWire inside a DReg.
-    //
-    // https://github.com/B-Lang-org/bsc/blob/861ec2de8daeca2ee8666cc74c4d0155423c8b34/src/Libraries/Base1/PreludeBSV.bsv#L113
-    // suggests that for sources without a reset it is appropriate to
-    // instantiate an RWire without one. The implicit expectation of this module
-    // is that since it is driven by an external signal the reset state of the
-    // sampler should not matter and upstream receivers should do whatever is
-    // necessary to correctly align themselves with the incoming data. It should
-    // therefor be safe to instantiate the BitSampler without reset as is done
-    // here.
-    BitSampler#(bit_period) sampler <- mkBitSampler(reset_by noReset);
-    Reg#(Bit#(1)) sample <- mkConfigRegU();
-
+//
+// 'mkSampledSerialIO` implements an adapter which samples the incoming serial
+// signal on every cycle. Similarly the output signal is timed such that each
+// bit takes `bit_period` cycles.
+//
+module mkSampledSerialIO #(GetPut#(Bit#(1)) txr)
+        (SampledSerialIO#(bit_period))
+            provisos (Add#(2, a__, bit_period));
     Strobe#(TLog#(bit_period)) tx_strobe <-
-        mkLimitStrobe(1, valueof(bit_period), 0);
+        mkLimitStrobe(1, fromInteger(valueof(bit_period) - 1), 0);
 
-    // Generate the TX strobe from the bit strobe.
-    (* fire_when_enabled *)
-    rule do_tx_strobe (bit_strobe);
-        tx_strobe.send();
-    endrule
+    (* hide *) SampledSerialIO#(bit_period) _io <-
+        mkSampledSerialIOWithTxStrobe(tx_strobe, txr);
 
-    // Forward bit samples from the sampler to the receiver.
-    (* fire_when_enabled *)
-    rule do_rx_sample;
-        let b <- sampler.out.get;
-
-        tpl_2(txr).put(b);
-        sample <= b;
-    endrule
-
-    (* fire_when_enabled *)
-    rule do_tx (tx_strobe);
-        let b <- tpl_1(txr).get;
-        tx_sync <= b;
-    endrule
-
-    // Synchronize incoming bits and sample when indicated by the bit strobe.
-    method Action rx(Bit#(1) b);
-        rx_sync <= b;
-
-        if (bit_strobe) begin
-            sampler.in.put(rx_sync);
-        end
-    endmethod
-
-    method rx_sample = sample;
-    method tx = tx_sync;
+    return _io;
 endmodule
 
+//
+// `mkSampledSerialIOWithTxStrobe` implements an adapter similar to
+// `mkSampledSerialIO` but allows the TX strobe to be generated externally. This
+// can be useful to either synchronize outputs or to make the opposite happen,
+// avoiding several outputs to switch at the same time.
+//
+// Note that it is the responsibility of the TX strobe to provide a period pulse
+// of `bit_period` cycles.
+//
 module mkSampledSerialIOWithTxStrobe #(
         Bool tx_strobe,
         GetPut#(Bit#(1)) txr)
@@ -198,6 +166,13 @@ module mkSampledSerialIOWithTxStrobe #(
     method tx = tx_sync;
 endmodule
 
+//
+// `mkSampledSerialIOWithPassiveTx` implements an adapter which samples the
+// incoming serial signal on every cycle but which does not explicitly advances
+// bits of the output signal. Instead the adapter only observes the output of
+// the transceiver `Get` interface and assumes external logic advances to the
+// next bit every `bit_period` cycles.
+//
 module mkSampledSerialIOWithPassiveTx #(
         GetPut#(Bit#(1)) txr)
             (SampledSerialIO#(bit_period))
@@ -233,6 +208,16 @@ module mkSampledSerialIOWithPassiveTx #(
     method tx = tx_sync;
 endmodule
 
+//
+// `mkSampledSerialIOWithTxStrobeAndOutputEnable` is a further variant of
+// `mkSampledSerialIOWithTxStrobe` which provides an explicit output enable
+// in-phase with the output signal. This can for example be used to keep the
+// output disabled until some condition is met without blocking the transceiver
+// `Get` pipeline and stalling upstream logic.
+//
+// Note that this module does not actually keep the output disabled, see
+// `mkSampledSerialIOWithTxStrobeInout` for an implementation of this.
+//
 module mkSampledSerialIOWithTxStrobeAndOutputEnable #(
         Bool tx_strobe,
         Bool tx_enable,
@@ -256,6 +241,42 @@ module mkSampledSerialIOWithTxStrobeAndOutputEnable #(
     method tx_enabled = tx_enable_sync;
 endmodule
 
+//
+// `mkSampledSerialIOWithTxStrobeInout` combines the functionality of the
+// adapters above, sampling the incoming serial signal on every cycle and
+// providing an output signal with explicit output enable. The output signal is
+// exposed as `Inout` in the interface allowing it to be connected to a top
+// interface, resulting in an output which can be placed in high-z until output
+// is desired.
+//
+module mkSampledSerialIOWithInout #(
+        Bool tx_enable,
+        GetPut#(Bit#(1)) txr)
+            (SampledSerialIOTxInout#(bit_period))
+                provisos (Add#(2, a__, bit_period));
+    Strobe#(TLog#(bit_period)) tx_strobe <-
+            mkLimitStrobe(1, fromInteger(valueof(bit_period) - 1), 0);
+
+    (* hide *) SampledSerialIOTxOutputEnable#(bit_period) _io <-
+            mkSampledSerialIOWithTxStrobeAndOutputEnable(
+                tx_strobe,
+                tx_enable,
+                txr);
+
+    (* hide *) WriteOnlyTriState#(Bit#(1)) _tx <-
+        mkNullCrossingWriteOnlyTriState(_io.tx_enabled, _io.tx);
+
+    method rx = _io.rx;
+    method rx_sample = _io.rx_sample;
+    interface Inout tx = _tx.o;
+endmodule
+
+//
+// `mkSampledSerialIOWithTxStrobeInout` is similar to
+// `mkSampledSerialIOWithTxStrobeInout` but provides explicit control over the
+// TX strobe. Similar to `mkSampledSerialIOWithTxStrobe` it is the
+// responsibility of external logic to provide a stobe of `bit_period` cycles.
+//
 module mkSampledSerialIOWithTxStrobeInout #(
         Bool tx_strobe,
         Bool tx_enable,
@@ -274,6 +295,73 @@ module mkSampledSerialIOWithTxStrobeInout #(
     method rx = _io.rx;
     method rx_sample = _io.rx_sample;
     interface Inout tx = _tx.o;
+endmodule
+
+//
+// `mkSampledSerialIOWithBitStrobe` implements an adapter which first slows down
+// the bit sampling using a given bit strobe. This can be used to set up a lower
+// baud rate interface for which each bit is then sampled using the desired
+// number of samples. The most obvious example of this is an UART with a fixed
+// number of samples per bit but a (runtime) selectable baud rate.
+//
+module mkSampledSerialIOWithBitStrobe #(
+        Bool bit_strobe,
+        GetPut#(Bit#(1)) txr)
+            (SampledSerialIO#(bit_period))
+                provisos (Add#(2, a__, bit_period));
+    InputReg#(Bit#(1), 2) rx_sync <- mkInputSync();
+    Reg#(Bit#(1)) tx_sync <- mkConfigRegU();
+
+    // This module is intended to be connected to pins in the top interface of a
+    // design. BitSampler however requires an implicit reset because of its
+    // implicit use of a RWire inside a DReg.
+    //
+    // https://github.com/B-Lang-org/bsc/blob/861ec2de8daeca2ee8666cc74c4d0155423c8b34/src/Libraries/Base1/PreludeBSV.bsv#L113
+    // suggests that for sources without a reset it is appropriate to
+    // instantiate an RWire without one. The implicit expectation of this module
+    // is that since it is driven by an external signal the reset state of the
+    // sampler should not matter and upstream receivers should do whatever is
+    // necessary to correctly align themselves with the incoming data. It should
+    // therefor be safe to instantiate the BitSampler without reset as is done
+    // here.
+    BitSampler#(bit_period) sampler <- mkBitSampler(reset_by noReset);
+    Reg#(Bit#(1)) sample <- mkConfigRegU();
+
+    Strobe#(TLog#(bit_period)) tx_strobe <-
+        mkLimitStrobe(1, valueof(bit_period), 0);
+
+    // Forward bit samples from the sampler to the receiver.
+    (* fire_when_enabled *)
+    rule do_rx_sample;
+        let b <- sampler.out.get;
+
+        tpl_2(txr).put(b);
+        sample <= b;
+    endrule
+
+    // Generate the TX strobe from the bit strobe and transmit.
+    (* fire_when_enabled *)
+    rule do_tx_strobe (bit_strobe);
+        tx_strobe.send();
+    endrule
+
+    (* fire_when_enabled *)
+    rule do_tx (tx_strobe);
+        let b <- tpl_1(txr).get;
+        tx_sync <= b;
+    endrule
+
+    // Synchronize incoming bits and sample when indicated by the bit strobe.
+    method Action rx(Bit#(1) b);
+        rx_sync <= b;
+
+        if (bit_strobe) begin
+            sampler.in.put(rx_sync);
+        end
+    endmethod
+
+    method rx_sample = sample;
+    method tx = tx_sync;
 endmodule
 
 //

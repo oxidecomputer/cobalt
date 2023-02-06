@@ -35,10 +35,9 @@ endmodule
 module mkLoopbackUART (TopMinimal);
     GSR gsr <- mkGSR(); // Allow GSR_N to reset the design.
     LoopbackUART#(12_000_000, 115200, 8) uart <- LoopbackUART::mkLoopbackUART();
-    InputReg#(Bit#(1), 2) rx_sync <- mkInputSyncFor(uart.serial.rx);
 
     method uart_tx = uart.serial.tx;
-    method uart_rx = sync(rx_sync);
+    method uart_rx = uart.serial.rx;
 
     method led = ~uart.frame;
 

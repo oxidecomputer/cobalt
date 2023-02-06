@@ -38,19 +38,18 @@ module mkLoopbackUART (LoopbackUART#(clk_freq, baud_rate, bit_period))
         valueof(clk_freq) >= valueof(baud_rate) * valueof(bit_period),
         "clk_freq < baud_rate * bit_period");
 
-    Reg#(Bit#(8)) received_frame <- mkRegU();
-
     // The bit size for this strobe is picked a bit arbitrarily. For baud
     // rates/bit periods which do not wholly divide into the clock frequency,
     // adding more bits will reduce strobe jitter. Adding more bits to a strobe
     // will increase the addition carry chain, which limits the maximum
     // frequency of this design.
     let strobe_fraction = valueof(clk_freq) / valueof(baud_rate) / valueof(bit_period);
-
     Strobe#(16) bit_strobe <- mkFractionalStrobe(strobe_fraction, 0);
+    mkFreeRunningStrobe(bit_strobe);
+
     SamplingTransceiver#(bit_period) txr <- mkSamplingTransceiver(bit_strobe);
 
-    mkFreeRunningStrobe(bit_strobe);
+    Reg#(Bit#(8)) received_frame <- mkRegU();
 
     (* fire_when_enabled *)
     rule do_loopback;
