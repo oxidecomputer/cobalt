@@ -96,17 +96,6 @@ class Register(BaseModel):
                 gaps.append(ReservedField(expected, field.high + 1))
             expected = field.low - 1
 
-            # Deal with enum cases. We're generating a single package
-            # and BSV won't let us have duplicate ENUM field names so we'll
-            # trip out here
-            if not self.repeated_type and field.has_encode():
-                enums = field.encode_enums()
-                for name, val in enums:
-                    if name not in known_enum_names:
-                        known_enum_names.add(name)
-                    else:
-                        raise DuplicateEnumNameError("Enum member '{}' on register '{}' has previously used enum name".format(name, self.name))
-
   
         if expected >= 0:
             gaps.append(ReservedField(expected, 0))
