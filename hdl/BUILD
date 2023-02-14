@@ -72,6 +72,17 @@ bluespec_library('SchmittReg',
         'SchmittReg.bsv'
     ])
 
+bluespec_library('SerialIO',
+    sources = [
+        'SerialIO.bsv'
+    ],
+    deps = [
+        ':BitSampling',
+        ':IOSync',
+        ':Strobe',
+        ':WriteOnlyTriState',
+    ])
+
 bluespec_library('Strobe',
     sources = [
         'Strobe.bsv'

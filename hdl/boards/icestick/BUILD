@@ -10,12 +10,12 @@ bluespec_verilog('examples',
     top = 'Examples.bsv',
     modules = [
         'mkBlinky',
-        'mkUARTLoopback',
+        'mkLoopbackUART',
     ],
     deps = [
         ':Board',
         '//hdl/examples:Blinky',
-        '//hdl/examples:UARTLoopback',
+        '//hdl/examples:LoopbackUART',
     ])
 
 # Blinky design targets
@@ -38,10 +38,10 @@ nextpnr_ice40_bitstream('blinky_icestick',
 
 # UART loopback design targets
 
-yosys_design('uart_loopback',
-    top_module = 'mkUARTLoopback',
+yosys_design('loopback_uart',
+    top_module = 'mkLoopbackUART',
     sources = [
-        ':examples#mkUARTLoopback',
+        ':examples#mkLoopbackUART',
         '//vnd/bluespec:Verilog.v#Verilog.v',
     ],
     deps = [
@@ -49,9 +49,9 @@ yosys_design('uart_loopback',
         '//vnd/bluespec:Verilog.v',
     ])
 
-nextpnr_ice40_bitstream('uart_loopback_icestick',
+nextpnr_ice40_bitstream('loopback_uart_icestick',
     env = 'icestick',
-    design = ':uart_loopback#uart_loopback.json',
+    design = ':loopback_uart#loopback_uart.json',
     deps = [
-        ':uart_loopback',
+        ':loopback_uart',
     ])

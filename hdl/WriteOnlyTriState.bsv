@@ -49,7 +49,7 @@ module mkNullCrossingWriteOnlyTriState #(
             (WriteOnlyTriState#(bits_type))
                 provisos(Bits#(bits_type, sz));
    default_clock clk();
-   no_reset;
+   default_reset no_reset;
 
    parameter width = valueof(sz);
 

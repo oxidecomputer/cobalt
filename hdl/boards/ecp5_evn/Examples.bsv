@@ -1,5 +1,3 @@
-// Copyright 2021 Oxide Computer Company
-//
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -8,10 +6,10 @@ package Examples;
 
 import Board::*;
 import ECP5::*;
+import IOSync::*;
 
 import Blinky::*;
-import UART::*;
-import UARTLoopback::*;
+import LoopbackUART::*;
 
 
 (* default_clock_osc="CLK_12mhz", default_reset="GSR_N" *)
@@ -34,21 +32,14 @@ module mkBlinky (TopMinimal);
 endmodule
 
 (* default_clock_osc="CLK_12mhz", default_reset="GSR_N" *)
-module mkUARTLoopback (TopMinimal);
+module mkLoopbackUART (TopMinimal);
     GSR gsr <- mkGSR(); // Allow GSR_N to reset the design.
-    UARTLoopback#(12_000_000, 115200, 8) loopback <- UARTLoopback::mkUARTLoopback();
+    LoopbackUART#(12_000_000, 115200, 8) uart <- LoopbackUART::mkLoopbackUART();
 
-    // RX input register. Since the output of this register goes into additional FFs as part of the
-    // bit sampler no meta instability is expected to occur.
-    Reg#(Bit#(1)) rx_sync <- mkRegU();
+    method uart_tx = uart.serial.tx;
+    method uart_rx = uart.serial.rx;
 
-    method uart_tx = loopback.serial.tx;
-    method Action uart_rx(Bit#(1) val);
-        rx_sync <= val;
-        loopback.serial.rx(rx_sync);
-    endmethod
-
-    method led = ~0;
+    method led = ~uart.frame;
 
     method Action btn(Bit#(1) val);
         // Ignore buttons.

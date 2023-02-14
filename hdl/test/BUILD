@@ -20,3 +20,19 @@ bluesim_tests('Encoding8b10bTests',
         '//hdl:Encoding8b10b',
         '//hdl:TestUtils',
     ])
+
+bluesim_tests('BitSamplingTests',
+    env = 'bluesim_default',
+    suite = 'BitSamplingTests.bsv',
+    modules = [
+        'mkBitSampling2Test',
+        'mkBitSampling3Test',
+        'mkBitSampling4Test',
+        'mkBitSampling5Test',
+        'mkBitSampling8Test',
+        'mkBitSampling16Test',
+    ],
+    deps = [
+        '//hdl:BitSampling',
+        '//hdl:TestUtils',
+    ])
