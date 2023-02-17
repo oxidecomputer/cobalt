@@ -130,6 +130,8 @@ bluesim_tests('DebouncerTest',
     suite = 'Debouncer.bsv',
     modules = [
         'mkDebouncerTest',
+        'mkDebounceFastAssertTest',
+        'mkDebounceFastDeassertTest',
     ],
     deps = [
         ':Debouncer',

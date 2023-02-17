@@ -17,7 +17,9 @@ import Vector::*;
 
 //
 // A schmitt trigger with Reg#(..) interface, intended to clean up noisy
-// signals. The register can be used with any single bit type.
+// signals by being a filter at whatever frequency `_write` is called. The
+// register can be used with any single bit type. If a more robust, less glitch
+// tolerant behavior is desired, consider the `Debouncer` package.
 //
 
 interface SchmittReg #(numeric type n_samples, type one_bit_type);
