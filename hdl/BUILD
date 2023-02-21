@@ -39,6 +39,11 @@ bluespec_library('Countdown',
         'Countdown.bsv',
     ])
 
+bluespec_library('Debouncer',
+    sources = [
+        'Debouncer.bsv',
+    ])
+
 bluespec_library('Encoding8b10b',
     sources = [
         'Deserializer8b10b.bsv',
@@ -118,6 +123,19 @@ bluesim_tests('CountdownTest',
     ],
     deps = [
         ':Countdown',
+    ])
+
+bluesim_tests('DebouncerTest',
+    env = 'bluesim_default',
+    suite = 'Debouncer.bsv',
+    modules = [
+        'mkDebouncerTest',
+        'mkDebounceFastAssertTest',
+        'mkDebounceFastDeassertTest',
+    ],
+    deps = [
+        ':Debouncer',
+        ':TestUtils',
     ])
 
 bluesim_tests('InitialResetTests',
