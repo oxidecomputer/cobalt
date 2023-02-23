@@ -42,6 +42,9 @@ bluespec_library('Countdown',
 bluespec_library('Debouncer',
     sources = [
         'Debouncer.bsv',
+    ],
+    deps = [
+        ':TestUtils',
     ])
 
 bluespec_library('Encoding8b10b',
@@ -54,7 +57,8 @@ bluespec_library('Encoding8b10b',
 bluespec_library('InitialReset',
     sources = [
         'InitialReset.bsv',
-    ], deps = [
+    ],
+    deps = [
         ':TestUtils',
     ])
 
