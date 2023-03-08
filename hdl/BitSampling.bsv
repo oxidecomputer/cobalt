@@ -31,11 +31,16 @@ endinterface
 // Without any bit edges in the signal the sampler will provide a sample on its
 // `out` interface every `bit_period` invocations of the `in` interface. Any
 // time an edge is detected in the signal the strobe indicating which sample is
-// returned is re-aligned in an attempt to hit near the center of the following
-// bit period. This allows the sampler to track the signal source despite some
-// amount of clock jitter and sampling aliasing. This works particularly well
-// for signals with short run lengths but has been applied to signals with
-// longer run lengths and asynchronous encoding.
+// to be returned is re-aligned in an attempt to hit near the center of the
+// following bit period. This allows the sampler to track the signal source
+// despite some amount of clock jitter and sampling aliasing. This works
+// particularly well for signals with short run lengths but has been applied to
+// signals with longer run lengths and asynchronous encoding.
+//
+// This module assumes downstream logic can accept a sample from the `out`
+// interface the next cycle it is marked available. If this can not be
+// guaranteed a FIFO should be inserted between the `out` interface and
+// downstream logic.
 //
 // It is theoretically possible to use a bit period of three samples on external
 // signals if the clocks in both systems have sufficient jitter performance.

@@ -20,8 +20,9 @@ endinterface
 
 //
 // `mkSignalGenerator` is a helper which takes a set of expected bit samples and
-// turns it into a signal with a given nominal bit period. Optionally the
-// randomizer can be used to simulate aliasing as a result of clock jitter.
+// turns it into a signal with a given nominal bit period. Optionally, a
+// randomizer is used to simulate aliasing in the signal as a result of clock
+// jitter.
 //
 module mkSignalGenerator #(
         Vector#(n, Bit#(1)) signal_samples_,
