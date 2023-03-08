@@ -79,6 +79,9 @@ module mkLoopbackUARTTest (Empty);
     mkFreeRunningStrobe(tx_strobe);
     mkConnection(rx_sampler.out, rx.in);
 
+    Reg#(UInt#(9)) i <- mkRegU();
+    Reg#(UInt#(9)) j <- mkRegU();
+
     // "Transmit" to the UART by getting the next bit from the test bench. The
     // rule fires contineously, but only fetches a new bit every bit period.
     (* fire_when_enabled *)
@@ -99,14 +102,15 @@ module mkLoopbackUARTTest (Empty);
         rx_sampler.in.put(rx_bit);
     endrule
 
-    mkAutoFSM(seq
-        repeat(3) seq
-            tx.in.put('h71);
-            assert_get_eq_display(rx.out, 'h71, "expected 'h71");
-        endseq
-    endseq);
+    mkAutoFSM(par
+        for (i <= 0; i < 256; i <= i + 1)
+            tx.in.put(truncate(pack(i)));
 
-    mkTestWatchdog(2000);
+        for (j <= 0; j < 256; j <= j + 1)
+            assert_get_eq(rx.out, truncate(pack(j)), "unexpected data");
+    endpar);
+
+    mkTestWatchdog((256 * 10 * 8) + 200);
 endmodule
 
 endpackage
