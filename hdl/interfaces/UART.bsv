@@ -91,7 +91,7 @@ Bit#(1) stop_or_idle = 1;
 // byte is combined with a START bit and latched into a shift buffer. This
 // buffer is then shifted every time the `out` interface is enabled and IDLE
 // bits are inserted on the opposite end of the buffer. This fills the buffer
-// with IDLE bits which will automacitally get shifted out as STOP/IDLE once the
+// with IDLE bits which will automatically get shifted out as STOP/IDLE once the
 // byte has been transmitted. When the last bit of the byte has been shifted out
 // the serializer is marked idle and the next byte can be submitted for
 // transmission.
@@ -101,6 +101,8 @@ module mkSerializer (Serializer);
     Reg#(Vector#(9, Bit#(1))) buffer <- mkReg(replicate(stop_or_idle));
 
     Reg#(Bool) idle <- mkReg(True);
+    Reg#(UInt#(4)) bits_remaining <- mkRegU();
+
     PulseWire shift <- mkPulseWire();
 
     (* fire_when_enabled *)
@@ -108,16 +110,21 @@ module mkSerializer (Serializer);
         if (in_byte.wget matches tagged Valid .b) begin
             // Set the shifter to contain a START bit and the frame to be sent.
             buffer <= unpack({b, start});
+
             idle <= False;
+            bits_remaining <= 1 + 8 + 1; // START + data + STOP
         end
         else if (shift) begin
             // Shift in stop/idle bits.
             buffer <= shiftInAtN(buffer, stop_or_idle);
 
-            // A bit is shifted out during this cycle. If all but this bit are
-            // the IDLE pattern it means the frame has been sent and the
-            // serializer is idle.
-            if (tail(buffer) == replicate(stop_or_idle)) begin
+            // Count down the remaining bits and set to idle if the last bit is
+            // being shifted out.
+            if (!idle) begin
+                bits_remaining <= bits_remaining - 1;
+            end
+
+            if (bits_remaining == 1) begin
                 idle <= True;
             end
         end
@@ -333,8 +340,13 @@ module mkDeserializerOverflowTest (Empty);
     mkTestWatchdog(25);
 endmodule
 
+//
+// This test sends all possible frame values back to back through both the
+// serializer and deserializer and makes sure a burst of data or specific data
+// values do not cause control bits to be skipped.
+//
 module mkSerializerDeserializerTest (Empty);
-    mkTestWatchdog(400);
+    mkTestWatchdog(15000);
 
     Serializer ser <- mkSerializer();
     Deserializer des <- mkDeserializer();
@@ -342,11 +354,32 @@ module mkSerializerDeserializerTest (Empty);
     // A probe to make it easier to observe the "transmitted" bits.
     Probe#(Bit#(1)) b <- mkProbe();
 
+    Reg#(UInt#(9)) i <- mkRegU();
+    Reg#(UInt#(9)) j <- mkRegU();
+
+    // The `half_rate` flag allows runs the "serial link" at half the rate of
+    // the test bench providing back pressure on the `in` interface of the
+    // `Serializer`. This is the common mode in which this module is expected to
+    // run. The result is maximum utilization of the link with STOP/START bits
+    // back to back between frames. Setting this flag to false causes a one
+    // cycle gap between enqueued bytes, simulating what happens if the link is
+    // faster than the data is supplied. The expected result is additional IDLE
+    // bits inserted between frames.
+    Reg#(Bool) half_rate <- mkReg(True);
+    Reg#(Bool) next_byte <- mkReg(False);
+
     (* fire_when_enabled *)
     rule do_tx;
-        let b_ <- ser.out.get;
-        des.in.put(b_);
-        b <= b_;
+        if (!half_rate || (half_rate && next_byte)) begin
+            let b_ <- ser.out.get;
+            des.in.put(b_);
+            b <= b_;
+
+            next_byte <= False;
+        end
+        else begin
+            next_byte <= True;
+        end
     endrule
 
     (* no_implicit_conditions, fire_when_enabled *)
@@ -355,18 +388,31 @@ module mkSerializerDeserializerTest (Empty);
     endrule
 
     mkAutoFSM(seq
+        // Serialize all values 0..255 in order and expect them to be
+        // deserialized in the same order on the other end.
+        half_rate <= True;
         par
-            repeat(3) ser.in.put('h71);
-            repeat(3) assert_get_eq_display(des.out, 'h71, "frame");
+            for (i <= 0; i < 256; i <= i + 1)
+                ser.in.put(truncate(pack(i)));
+
+            for (j <= 0; j < 256; j <= j + 1)
+                assert_get_eq(des.out, truncate(pack(j)), "unexpected data");
         endpar
 
         // Demonstrate that the link can go idle for some number of cycles and
         // continue.
-        repeat(10) noAction;
+        repeat(100) noAction;
 
+        // Repeat the test pattern above but run as fast as the deserializer
+        // allows enqueueing bytes. Because the guard on that interface is
+        // flopped an extra IDLE bit is inserted between every frame.
+        half_rate <= False;
         par
-            repeat(3) ser.in.put('h71);
-            repeat(3) assert_get_eq_display(des.out, 'h71, "frame");
+            for (i <= 0; i < 256; i <= i + 1)
+                ser.in.put(truncate(pack(i)));
+
+            for (j <= 0; j < 256; j <= j + 1)
+                assert_get_eq(des.out, truncate(pack(j)), "unexpected data");
         endpar
     endseq);
 endmodule
