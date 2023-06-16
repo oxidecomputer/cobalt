@@ -186,7 +186,7 @@ instance Connectable#(Strobe#(a), Strobe#(b));
     endmodule
 endinstance
 
-// Make Strobes and Pulsewires connectable.
+// Make Strobes and PulseWires connectable.
 instance Connectable#(Strobe#(a), PulseWire);
     module mkConnection #(Strobe#(a) s, PulseWire w) (Empty);
         (* fire_when_enabled *)
@@ -205,6 +205,39 @@ instance Connectable#(PulseWire, Strobe#(a));
     endmodule
 endinstance
 
+// Make Strobes and Actions connectable.
+instance Connectable#(Strobe#(a), Action);
+    module mkConnection #(Strobe#(a) s, Action a) (Empty);
+        (* fire_when_enabled *)
+        rule do_a (s);
+            a();
+        endrule
+    endmodule
+endinstance
+
+// Make Strobes and ActionValues connectable. Note that this does silently
+// discard the returned value.
+instance Connectable#(Strobe#(a), ActionValue#(b));
+    module mkConnection #(Strobe#(a) s, ActionValue#(b) av) (Empty);
+        (* fire_when_enabled *)
+        rule do_av (s);
+            let _ <- av();
+        endrule
+    endmodule
+endinstance
+
+// Make ActionValues and Strobes connectable. This is mostly here for
+// completeness, but could for example be used to feed Bools through a `Get`
+// interface which are then used to determine when to tick the strobe.
+instance Connectable#(ActionValue#(Bool), Strobe#(a));
+    module mkConnection #(ActionValue#(Bool) av, Strobe#(a) s) (Empty);
+        (* fire_when_enabled *)
+        rule do_tick;
+            let tick <- av();
+            if (tick) s.send();
+        endrule
+    endmodule
+endinstance
 
 function Action tick_while_assert(
         Strobe#(sz) s,
