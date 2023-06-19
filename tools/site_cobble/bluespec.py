@@ -571,7 +571,7 @@ def bluesim_test(subparsers):
             # the output for failures.
             if not self.result == self.Result.FAIL:
                 for line in self.output:
-                    if line.startswith('Dynamic assertion failed'):
+                    if 'assertion failed' in line:
                         self.result = self.Result.FAIL
 
         @property
