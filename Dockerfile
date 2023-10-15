@@ -7,13 +7,10 @@ ARG HOME=/home
 
 ARG INSTALL_PREFIX=/usr/local
 
-# Pinned versions to caching these images.
 ARG BSC_URL=https://github.com/B-Lang-org/bsc.git
-ARG BSC_SHA=2005df70feb6160804399f69c26c803697aa6306
 ARG BSC_CONTRIB_URL=https://github.com/B-Lang-org/bsc-contrib.git
-ARG BSC_CONTRIB_SHA=aa205330885f6955e24fd99a0319e2733b5353f1
 
-ARG OSS_CAD_RELEASE_URL=https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2022-12-22/oss-cad-suite-linux-ARCH-20221222.tgz
+ARG OSS_CAD_RELEASE_URL=https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2023-10-14/oss-cad-suite-linux-ARCH-20231014.tgz
 
 # Create a non-root user, owning /home
 RUN groupadd --gid $GID $USERNAME && \
@@ -75,7 +72,7 @@ ENV PATH="${PATH}:$INSTALL_PREFIX/py3bin:$INSTALL_PREFIX/bluespec/bin"
 
 # Fetch the the Bluespec toolchain at the specified SHA.
 RUN git clone --recursive $BSC_URL /tmp/bsc && cd /tmp/bsc && \
-    git checkout $BSC_SHA && git submodule update -f && \
+    git submodule update -f && \
     # Build, install and clean up. Unfortunately the Bluespec build
     # infrastructure conflates its own library resources and the Bluespec and
     # Verilog standard libraries for design builds, so use a seperate prefix
@@ -85,7 +82,7 @@ RUN git clone --recursive $BSC_URL /tmp/bsc && cd /tmp/bsc && \
 
 # Fetch BSC Contrib at the specified SHA.
 RUN git clone --recursive $BSC_CONTRIB_URL /tmp/bsc-contrib && cd /tmp/bsc-contrib && \
-    git checkout $BSC_CONTRIB_SHA && git submodule update -f && \
+    git submodule update -f && \
     # Build, install and clean up.
     make PREFIX=$INSTALL_PREFIX/bluespec install && \
     rm -rf /tmp/bsc-contrib
