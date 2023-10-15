@@ -35,8 +35,8 @@ Rather than manually installing the toolchains below, you can build a Docker ima
 in this repository. From the cobalt checkout directory, build the Docker image using the command:
 `docker build .`
 
-The docker image has the bluespec tools installed in `/opt/bluespec/` and the synthesis tools installed
-in `/opt/fpga-toolchain`, and both `/opt/bluespec/bin/`  and `/opt/fpga-toolchain/bin/` locations are
+The docker image has the bluespec tools installed in `/usr/local/bluespec/` and the synthesis tools installed
+in `/opt/fpga-toolchain`, and both `/opt/bluespec/bin/`  and `/usr/local/bin/` locations are
 added to the PATH env variable.
 
 ### Bare metal Option (install the toolchains yourself)
