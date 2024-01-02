@@ -9,7 +9,7 @@ from systemrdl import RDLWalker
 
 from models import Register, Field, ReservedField, Memory
 from listeners import BaseListener
-from utils import to_camel_case, to_snake_case
+from utils import to_camel_case, to_snake_case, vhdl_2k8bitstring
 
 from typing import Any, Dict, List
 
@@ -18,6 +18,7 @@ class TemplatedOutput:
             '.bsv': 'regpkg_bsv.jinja2',
             '.html': 'regmap_html.jinja2',
             '.adoc': 'regmap_adoc.jinja2',
+            '.vhd': 'regpkg_vhdl.jinja2',
         }
     def __init__(self, out_name: PathLike, template_name=None):
         self.full_output_path = out_name
@@ -49,6 +50,7 @@ class BaseExporter:
         self.env = Environment(loader=FileSystemLoader(Path(__file__).parent / 'templates'), lstrip_blocks=True, trim_blocks=True)
         self.env.filters['to_camel_case'] = to_camel_case
         self.env.filters['to_snake_case'] = to_snake_case
+        self.env.filters['vhdl_2k8bitstring'] = vhdl_2k8bitstring
         self.templates = []
         self.outputs = []
 
@@ -114,6 +116,7 @@ class MapExporter(BaseExporter):
             # self.env.get_template('regmap_adoc.jinja2'), 
             self.env.get_template('regpkg_bsv.jinja2'), 
             self.env.get_template('regmap_html.jinja2'),
+            self.env.get_template('regpkg_vhdl.jinja2')
             ]
 
     def export(self, node: Node, output_names: List[PathLike], **kwargs: 'Dict[str, Any]') -> None:

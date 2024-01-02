@@ -1,0 +1,270 @@
+{% set module_name = outputs.get_entity_name('.vhd') %}
+-- This is a generated file using the RDL tooling. Do not edit by hand.
+
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+package {{module_name}} is
+  -- ------------------------
+  -- Addrmap-specific defines
+  -- ------------------------
+  {# Loop registers #}
+  {% for register in registers %}
+    constant {{register.name|upper}}_OFFSET : integer := {{register.offset}};
+  {% endfor %}
+
+  -- ---------------
+  -- Register types
+  -- ---------------
+  {% for register in registers %}
+    {% if not register.repeated_type and isinstance(register, Register) %}
+      {% set reg_name = register.type_name|lower %}
+      {% set reg_type_name = register.type_name|lower+'_type' %}
+  --
+  -- Register {{reg_name}} definitions
+  ------------------
+      {# Build out enum definitions if they exist #}
+      {% for field in register.encoded_fields %}
+        {% if loop.first %}
+  -- Register-specific Enums
+        {% endif %}
+  type {{reg_name}}_{{field.name|lower}} is (
+          {% for enum_name, enum_val in field.encode_enums() %}
+    {{enum_name|upper}}{% if not loop.last %}, -- {{enum_val}}
+    {% else %}); -- {{enum_val}}
+    {% endif %}
+          {% endfor %}
+      {% endfor %}
+  
+  type {{reg_type_name}} is record
+      {% for field in register.packed_fields %}
+        {% if field.has_encode() %}
+      {{field.name}}  : {{reg_name}}_{{field.name|lower}};
+        {% elif field.width > 1 %}
+        {# Todo: fix for slv by custom property? #}
+      {{field.name}}{{' : unsigned(%s downto 0);' % (field.width-1)}}
+        {% elif field.width == 1 %}
+      {{field.name}}    : std_logic;
+        {%endif%}
+      {% endfor%}
+  end record;
+  -- register constants
+  -- field mask definitions
+      {% for field in register.packed_fields %}
+  constant {{register.name|upper}}_{{field.name|upper}}_MASK : std_logic_vector({{register.width - 1}} downto 0) := {{field.mask|vhdl_2k8bitstring(register.width)}};
+      {% endfor %}
+      {% for field in register.encoded_fields %}
+        {% if loop.first %}
+  -- some useful functions that operate on the register-specific enums
+        {% endif %}
+  function encode(slv : std_logic_vector({{field.width - 1}} downto 0)) return {{reg_name}}_{{field.name|lower}};
+  function decode(enum: {{reg_name}}_{{field.name|lower}}) return std_logic_vector;
+      {% endfor %}
+  -- some useful functions that operate on the <type> record
+  function unpack(slv : std_logic_vector({{register.width - 1}} downto 0)) return {{reg_type_name}};
+  function unpack(un : unsigned({{register.width - 1}} downto 0)) return {{reg_type_name}};
+  function pack(rec : {{reg_type_name}}) return std_logic_vector;
+  function pack(rec : {{reg_type_name}}) return unsigned;
+  function compress (rec : {{reg_type_name}}) return std_logic_vector;
+  function uncompress (vec : std_logic_vector) return {{reg_type_name}};
+  function sizeof (rec : {{reg_type_name}}) return integer;
+  function rec_reset return {{reg_type_name}};
+  function "or"  (left, right : {{reg_type_name}}) return {{reg_type_name}};
+  function "or"  (left : {{reg_type_name}}; right : std_logic_vector) return {{reg_type_name}};
+  function "or"  (left : {{reg_type_name}}; right : unsigned) return {{reg_type_name}};
+  function "and" (left, right : {{reg_type_name}}) return {{reg_type_name}};
+  function "and" (left : {{reg_type_name}}; right : std_logic_vector) return {{reg_type_name}};
+  function "and" (left : {{reg_type_name}}; right : unsigned) return {{reg_type_name}};
+  function "xor" (left, right : {{reg_type_name}}) return {{reg_type_name}};
+  function "xor" (left : {{reg_type_name}}; right : std_logic_vector) return {{reg_type_name}};
+  function "xor" (left : {{reg_type_name}}; right : unsigned) return {{reg_type_name}};
+  function "not" (right : {{reg_type_name}}) return {{reg_type_name}};
+    {% endif %}
+  {% endfor %}
+end {{module_name}};
+
+package body {{module_name}} is
+  {# Loop non-repeated registers needing implementation #}
+  {% for register in registers %}
+    {% if not register.repeated_type and isinstance(register, Register) %}
+      {% set reg_name = register.type_name|lower %}
+      {% set reg_type_name = register.type_name|lower+'_type' %}
+  ---------------------------------------
+  -- {{reg_type_name}} subprogram bodies
+  ---------------------------------------
+        {% for field in register.encoded_fields %}
+        {% if loop.first %}
+  -- enum encode/decode
+        {% endif %}
+  function encode(slv : std_logic_vector({{field.width - 1}} downto 0)) return {{reg_name}}_{{field.name|lower}} is
+      variable ret_enum : {{reg_name}}_{{field.name|lower}};
+    begin
+      case slv is
+          {% for enum_name, enum_value in field.encode_enums() %}
+        when {{enum_value|vhdl_2k8bitstring(field.width)}} => ret_enum := {{enum_name}};
+          {% endfor %}
+        when others => null;
+      end case;
+      return ret_enum;
+  end encode;
+     
+  function decode(enum: {{reg_name}}_{{field.name|lower}}) return std_logic_vector is
+      variable ret_vec: std_logic_vector({{field.width - 1}} downto 0) := (others => '0');
+    begin
+      case enum is
+          {% for enum_name, enum_value in field.encode_enums() %}
+        when {{enum_name}} => ret_vec := {{enum_value|vhdl_2k8bitstring(field.width)}};
+          {% endfor %}
+      end case;
+  end decode;
+      {% endfor %}
+  function unpack (slv : std_logic_vector({{register.width - 1}} downto 0)) return {{reg_type_name}} is
+      variable ret_rec : {{reg_type_name}};
+    begin
+      {% for field in register.packed_fields %}
+        {% if field.has_encode() %}
+        ret_rec.{{field.name}}:= encode(slv);
+        {% elif field.width > 1 %}
+        ret_rec.{{field.name}}:= unsigned(slv({{field.vhdl_bitslice_str()}}));
+        {% else %}
+        ret_rec.{{field.name}}:= slv({{field.vhdl_bitslice_str()}});
+        {% endif %}
+      {% endfor %}
+      return ret_rec;
+    end unpack;
+  function unpack (un : unsigned({{register.width - 1}} downto 0)) return {{reg_type_name}} is
+    begin
+      -- convert to std_logic_vector and use the 1st pack function
+      return unpack(std_logic_vector(un));
+    end unpack;
+  function pack (rec : {{reg_type_name}}) return std_logic_vector is
+      variable ret_vec : std_logic_vector({{register.width - 1}} downto 0) := (others => '0');
+    begin
+      {% for field in register.packed_fields %}
+          {% if field.has_encode() %}
+          ret_vec({{field.vhdl_bitslice_str()}}) := decode(rec.{{field.name}});
+          {% elif field.width > 1 %}
+            ret_vec({{field.vhdl_bitslice_str()}}) := std_logic_vector(rec.{{field.name}});
+          {% else %}
+            ret_vec({{field.vhdl_bitslice_str()}}) := rec.{{field.name}};
+          {% endif %}
+      {% endfor %}
+      return ret_vec;
+    end pack;
+    function pack (rec : {{reg_type_name}}) return unsigned is
+    begin
+      -- convert to std_logic_vector and use the 1st pack function
+      return unsigned(std_logic_vector'(pack(rec)));
+    end pack;
+    function compress (rec : {{reg_type_name}}) return std_logic_vector is
+        variable ret_vec : std_logic_vector({{register.used_bits - 1}} downto 0);
+    begin
+        {% set ns = namespace(bit = register.used_bits) %}
+        {% for field in register.packed_fields %}
+          {% if  field.has_encode() %}
+        ret_vec({{ns.bit-1}} downto {{ns.bit - field.width}}) := decode(rec.{{field.name}});
+          {% elif field.width == 1 %}
+        ret_vec({{ns.bit-1}}) := rec.{{field.name}};
+          {% else %}
+        ret_vec({{ns.bit-1}} downto {{ns.bit - field.width}}) := std_logic_vector(rec.{{field.name}});
+          {% endif %}
+          {% set ns.bit = ns.bit - field.width %}
+        {% endfor %}
+        return ret_vec;
+    end compress;
+    function uncompress (vec : std_logic_vector) return {{reg_type_name}} is
+        variable ret_rec : {{reg_type_name}};
+    begin
+        {% set ns = namespace(bit = register.used_bits) %}
+        {% for field in register.packed_fields %}
+          {% if  field.has_encode() %}
+        ret_rec.{{field.name}} := encode(vec({{ns.bit -1}} downto {{ns.bit-field.width}}));
+          {% elif field.width > 1 %}
+        ret_rec.{{field.name}} := unsigned(vec({{ns.bit -1}} downto {{ns.bit-field.width}}));
+          {% else %}
+        ret_rec.{{field.name}} := vec({{ns.bit -1}});
+          {% endif %}
+          {% set ns.bit = ns.bit - field.width %}
+        {% endfor %}
+        return ret_rec;
+    end uncompress;
+    function sizeof (rec : {{reg_type_name}}) return integer is
+    begin
+        return {{register.used_bits}};
+    end sizeof;
+    function rec_reset return {{reg_type_name}} is
+        variable ret_rec : {{reg_type_name}};
+    begin
+        {% for field in register.packed_fields %}
+          {% if field.has_encode() %}
+        ret_rec.{{field.name}} := encode({{field.vhdl_reset_or_default}});
+          {% else %}
+        ret_rec.{{field.name}} := {{field.vhdl_reset_or_default}};
+          {% endif %}
+        {% endfor %}
+        return ret_rec;
+    end rec_reset;
+    function "or" (left, right : {{reg_type_name}}) return {{reg_type_name}} is
+      variable ret_rec : {{reg_type_name}};
+    begin
+      ret_rec := unpack(std_logic_vector'(pack(left)) or std_logic_vector'(pack(right)));
+      return ret_rec;
+    end "or";
+    function "or" (left : {{reg_type_name}}; right : std_logic_vector) return {{reg_type_name}} is
+      variable ret_rec : {{reg_type_name}};
+    begin
+      ret_rec := unpack(std_logic_vector'(pack(left)) or right);
+    return ret_rec;
+    end "or";
+    function "or" (left : {{reg_type_name}}; right : unsigned) return {{reg_type_name}} is
+      variable ret_rec : {{reg_type_name}};
+    begin
+      ret_rec := unpack(unsigned'(pack(left)) or right);
+    return ret_rec;
+    end "or";
+    function "and" (left, right : {{reg_type_name}}) return {{reg_type_name}} is
+      variable ret_rec : {{reg_type_name}};
+    begin
+      ret_rec := unpack(std_logic_vector'(pack(left)) and std_logic_vector'(pack(right)));
+    return ret_rec;
+    end "and";
+    function "and" (left : {{reg_type_name}}; right : std_logic_vector) return {{reg_type_name}} is
+      variable ret_rec : {{reg_type_name}};
+    begin
+      ret_rec := unpack(std_logic_vector'(pack(left)) and right);
+    return ret_rec;
+    end "and";
+    function "and" (left : {{reg_type_name}}; right : unsigned) return {{reg_type_name}} is
+      variable ret_rec : {{reg_type_name}};
+    begin
+      ret_rec := unpack(unsigned'(pack(left)) and right);
+    return ret_rec;
+    end "and";
+    function "xor" (left, right : {{reg_type_name}}) return {{reg_type_name}} is
+      variable ret_rec : {{reg_type_name}};
+    begin
+      ret_rec := unpack(std_logic_vector'(pack(left)) xor std_logic_vector'(pack(right)));
+    return ret_rec;
+    end "xor";
+    function "xor" (left : {{reg_type_name}}; right : std_logic_vector) return {{reg_type_name}} is
+      variable ret_rec : {{reg_type_name}};
+    begin
+      ret_rec := unpack(std_logic_vector'(pack(left)) xor right);
+    return ret_rec;
+    end "xor";
+    function "xor" (left : {{reg_type_name}}; right : unsigned) return {{reg_type_name}} is
+      variable ret_rec : {{reg_type_name}};
+    begin
+      ret_rec := unpack(unsigned'(pack(left)) xor right);
+    return ret_rec;
+    end "xor";
+    function "not" (right : {{reg_type_name}}) return {{reg_type_name}} is
+      variable ret_rec : {{reg_type_name}};
+    begin
+      ret_rec := unpack(not std_logic_vector'(pack(right)));
+    return ret_rec;
+    end "not";
+    {% endif %}
+  {% endfor %}
+end {{module_name}};

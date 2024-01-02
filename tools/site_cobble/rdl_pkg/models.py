@@ -53,11 +53,22 @@ class Register(BaseModel):
         super().__init__(**kwargs)
 
     @property
+    def used_bits(self):
+        return sum([x.width for x in self.packed_fields])
+
+    @property
     def packed_fields(self):
         """
             Returns all the defined register fields, skipping any ReservedFields (undefined spaces)
         """
         return [x for x in self.fields if not isinstance(x, ReservedField)]
+    
+    @property
+    def encoded_fields(self):
+        """
+            Returns any register fields that have encodings
+        """
+        return [x for x in self.packed_fields if x.has_encode()]
 
     @property
     def has_reset_definition(self):
@@ -117,11 +128,17 @@ class Register(BaseModel):
 
 class BaseField:
     """ A base class with common implementations for fields"""
-    def bitslice_str(self) -> str:
+    def bsv_bitslice_str(self) -> str:
         if self.high == self.low:
             return str(self.low)
         else:
             return f"{self.high}:{self.low}"
+   
+    def vhdl_bitslice_str(self) -> str:
+        if self.high == self.low:
+            return str(self.low)
+        else:
+            return f"{self.high} downto {self.low}"
 
     @property
     def width(self):
@@ -129,7 +146,7 @@ class BaseField:
 
     @property
     def mask(self):
-        return '{:02x}'.format(((1 << self.width) - 1) << self.low)
+        return ((1 << self.width) - 1) << self.low
 
     def get_property(self, *args, **kwargs):
         try:
@@ -142,6 +159,15 @@ class BaseField:
     def reset_str(self):
         my_rst = self.node.get_property('reset')
         return "{:#0x}".format(my_rst) if my_rst is not None else "None"
+    
+    @property
+    def vhdl_reset_or_default(self):
+        my_rst = self.node.get_property('reset')
+        reset_val = 0 if my_rst is None else my_rst
+        if self.width > 1:
+            return f'{self.width}x"{reset_val:X}"'
+        else: 
+            return f"'{reset_val:1X}'"
 
     def has_encode(self):
         return False

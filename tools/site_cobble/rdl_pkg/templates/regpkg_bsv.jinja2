@@ -31,13 +31,13 @@ typedef struct {
     {% for field in register.packed_fields %}
         {% set field_type = "Bit#({})".format(field.width) %}
         {% set name =  register.format_field_name(field.name)|lower %}
-    {{ "{:<18}".format(field_type)}} {{ name }};  // bit {{field.bitslice_str()}}    
+    {{ "{:<18}".format(field_type)}} {{ name }};  // bit {{field.bsv_bitslice_str()}}    
     {% endfor %}
 } {{ reg_type_name_camel }} deriving (Eq, FShow);
 // Field mask definitions
     {% for field in register.fields %}
         {% if not isinstance(field, ReservedField) %}
-Bit#({{register.width}}) {{register.name|lower|to_camel_case}}{{register.format_field_name(field.name)|lower|to_camel_case(uppercamel=True)}} = 'h{{field.mask}};
+Bit#({{register.width}}) {{register.name|lower|to_camel_case}}{{register.format_field_name(field.name)|lower|to_camel_case(uppercamel=True)}} = 'h{{'{:02x}'.format(field.mask)}};
         {% endif %}
         {% if field.has_encode() %}
 // Field Enum encoding
@@ -54,7 +54,7 @@ instance Bits#({{reg_type_name_camel}}, {{register.width}});
         Bit#({{register.width}}) bts =  'h00;
         {% for field in register.fields %}
         {% if not isinstance(field, ReservedField) %}
-        bts[{{field.bitslice_str()}}] = r.{{register.format_field_name(field.name).strip()|lower}};
+        bts[{{field.bsv_bitslice_str()}}] = r.{{register.format_field_name(field.name).strip()|lower}};
         {% endif %}
         {% endfor %}
         return bts;
@@ -62,7 +62,7 @@ instance Bits#({{reg_type_name_camel}}, {{register.width}});
     function {{reg_type_name_camel}} unpack (Bit#({{register.width}}) b);
         let r = {{reg_type_name_camel}} {
         {% for field in register.packed_fields %}
-            {{register.format_field_name(field.name).strip()|lower}}: b[{{field.bitslice_str()}}] {{ ", " if not loop.last else "" }}
+            {{register.format_field_name(field.name).strip()|lower}}: b[{{field.bsv_bitslice_str()}}] {{ ", " if not loop.last else "" }}
         {% endfor %}
         };      
         return r;
