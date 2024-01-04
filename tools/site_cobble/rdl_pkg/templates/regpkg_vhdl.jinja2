@@ -1,5 +1,38 @@
 {% set module_name = outputs.get_entity_name('.vhd') %}
 -- This is a generated file using the RDL tooling. Do not edit by hand.
+--
+-------------------------------
+-- Register "API" Documentation
+-------------------------------
+--   Each register is defined as a VHDL record and the following functions
+--   are provided for use:
+--   unpack() takes a std_logic_vector of the register's width (including 
+--     reserved bits in their respective positions) and returns an instance
+--     of the register's record type with the appropriate bits set.
+--     Overloaded with a version that accepts unsigned vectors.
+--   pack() takes an instance of the register's record typ and returns a
+--     a std_logic_vector of the register's width with the appropriate bits 
+--     set, (including reserved bits in their respective positions).
+--     Overloaded with an unsigned() version as well
+--   compress() takes an instance of the register's record type and returns a
+--     a std_logic_vector of the register's width with the appropriate bits 
+--     set, skipping any reserved fields.
+--   uncompress() is the comlement of compress() taking a std_logic_vector 
+--     in a register's compressed form putting it back into the record type
+--   sizeof() returns an integer of the number of used bits in the register
+--   rec_reset abusing overload signatures to return the reset value for the
+--     register type as defined in the RDL
+--   "or","and", "xor" we provide overloads for logical bitwise functions for 
+--     the record type with itself on both sides, it on the left side with an 
+--     slv on the right, and it on the left side with an unsigned on the right.
+--     Note: In cases where enumerated types are used, these will properly 
+--       bitwise operate but doing bitwise operations on enumerated values is
+--       likely nonsensical.
+--   "not" we provide a convience overload for doing a bitwise not on the record itself
+--     as a unary operator without forcing the user to convert to bits.
+--     Note: In cases where enumerated types are used, this will properly 
+--       bitwise operate but doing bitwise operations on enumerated values is
+--       likely nonsensical.
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -21,9 +54,9 @@ package {{module_name}} is
     {% if not register.repeated_type and isinstance(register, Register) %}
       {% set reg_name = register.type_name|lower %}
       {% set reg_type_name = register.type_name|lower+'_type' %}
-  --
+  -- ---------------
   -- Register {{reg_name}} definitions
-  ------------------
+  -- ---------------
       {# Build out enum definitions if they exist #}
       {% for field in register.encoded_fields %}
         {% if loop.first %}
@@ -95,7 +128,7 @@ package body {{module_name}} is
   ---------------------------------------
         {% for field in register.encoded_fields %}
         {% if loop.first %}
-  -- enum encode/decode
+  -- enum {{reg_name}}_{{field.name|lower}} encode from bits
         {% endif %}
   function encode(slv : std_logic_vector({{field.width - 1}} downto 0)) return {{reg_name}}_{{field.name|lower}} is
       variable ret_enum : {{reg_name}}_{{field.name|lower}};
@@ -108,7 +141,7 @@ package body {{module_name}} is
       end case;
       return ret_enum;
   end encode;
-     
+  -- enum {{reg_name}}_{{field.name|lower}} decode to bits
   function decode(enum: {{reg_name}}_{{field.name|lower}}) return std_logic_vector is
       variable ret_vec: std_logic_vector({{field.width - 1}} downto 0) := (others => '0');
     begin
@@ -135,7 +168,7 @@ package body {{module_name}} is
     end unpack;
   function unpack (un : unsigned({{register.width - 1}} downto 0)) return {{reg_type_name}} is
     begin
-      -- convert to std_logic_vector and use the 1st pack function
+      -- convert to std_logic_vector and use the 1st unpack function
       return unpack(std_logic_vector(un));
     end unpack;
   function pack (rec : {{reg_type_name}}) return std_logic_vector is
@@ -266,5 +299,6 @@ package body {{module_name}} is
     return ret_rec;
     end "not";
     {% endif %}
+
   {% endfor %}
 end {{module_name}};
