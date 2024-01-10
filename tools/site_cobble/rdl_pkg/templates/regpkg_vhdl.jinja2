@@ -10,14 +10,14 @@
 --     reserved bits in their respective positions) and returns an instance
 --     of the register's record type with the appropriate bits set.
 --     Overloaded with a version that accepts unsigned vectors.
---   pack() takes an instance of the register's record typ and returns a
+--   pack() takes an instance of the register's record type and returns a
 --     a std_logic_vector of the register's width with the appropriate bits 
 --     set, (including reserved bits in their respective positions).
 --     Overloaded with an unsigned() version as well
 --   compress() takes an instance of the register's record type and returns a
 --     a std_logic_vector of the register's width with the appropriate bits 
 --     set, skipping any reserved fields.
---   uncompress() is the comlement of compress() taking a std_logic_vector 
+--   uncompress() is the complement of compress() taking a std_logic_vector 
 --     in a register's compressed form putting it back into the record type
 --   sizeof() returns an integer of the number of used bits in the register
 --   rec_reset abusing overload signatures to return the reset value for the
@@ -28,8 +28,9 @@
 --     Note: In cases where enumerated types are used, these will properly 
 --       bitwise operate but doing bitwise operations on enumerated values is
 --       likely nonsensical.
---   "not" we provide a convience overload for doing a bitwise not on the record itself
---     as a unary operator without forcing the user to convert to bits.
+--   "not" we provide a convenience overload for doing a bitwise not on the 
+--     record itself as a unary operator without forcing the user to convert to
+--     bits.
 --     Note: In cases where enumerated types are used, this will properly 
 --       bitwise operate but doing bitwise operations on enumerated values is
 --       likely nonsensical.

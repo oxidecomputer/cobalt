@@ -11,7 +11,7 @@ from listeners import PreExportListener, MyModelPrintingListener
 from json_dump import convert_to_json
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--input', nargs="+", dest='input_file', help='Explicity input list')
+parser.add_argument('--input', '--inputs', nargs="+", dest='input_file', help='Explicity input list')
 parser.add_argument('--out-dir', dest='out_dir', default=Path.cwd(), help='Output directory')
 parser.add_argument('--debug', action="store_true", default=False)
 parser.add_argument('--outputs', nargs="+", help="Explicit output list")
